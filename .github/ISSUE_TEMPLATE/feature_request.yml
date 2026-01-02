@@ -1,0 +1,75 @@
+name: Feature request
+description: Suggest an improvement or new capability.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      placeholder: What problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      placeholder: Describe the proposed change.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: Define success conditions.
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security/audit considerations
+      placeholder: Describe security, privacy, or audit implications.
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Out of scope
+      placeholder: What is explicitly out of scope?
+    validations:
+      required: false
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      placeholder: List dependencies or related work.
+    validations:
+      required: false
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      options:
+        - Risks
+        - Controls
+        - Evidence
+        - Assets
+        - Incidents
+        - Vendors
+        - Admin/Billing
+        - AI Advisory
+        - Integrations
+        - Other
+    validations:
+      required: true
