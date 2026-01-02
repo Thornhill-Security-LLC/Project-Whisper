@@ -1,7 +1,7 @@
 # Security Policy
 
 ## Reporting a Vulnerability
-Please report security issues privately. If GitHub Security Advisories are enabled for this repository, use that feature to submit a report. Otherwise, email: security@yourcompany.example.
+Please report security issues privately. If GitHub Security Advisories are enabled for this repository, use that feature to submit a report. Otherwise, email: ms@thornhill.cc
 
 ## What to Include
 Provide a clear description of the issue, affected components, reproduction steps, impact assessment, and any suggested mitigations. Include relevant logs, proof-of-concept code, or screenshots when appropriate.
