@@ -5,8 +5,10 @@ services:
     image: postgres:16
     ports:
       - "5432:5432"
-    env_file:
-      - .env
+    environment:
+      POSTGRES_DB: whisper
+      POSTGRES_USER: whisper
+      POSTGRES_PASSWORD: whisper_dev_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -17,6 +19,12 @@ services:
       - "8000:8000"
     depends_on:
       - postgres
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: whisper
+      POSTGRES_USER: whisper
+      POSTGRES_PASSWORD: whisper_dev_password
 
 volumes:
   postgres_data:
