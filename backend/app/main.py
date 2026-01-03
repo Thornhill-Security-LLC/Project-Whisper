@@ -2,11 +2,13 @@ from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.api import api_router
+from app.api.routes.organisation import router as organisation_router
+from app.api.routes.user_account import router as user_router
 from app.db.session import get_db
 
 app = FastAPI()
-app.include_router(api_router, prefix="/api")
+app.include_router(organisation_router, prefix="/api")
+app.include_router(user_router, prefix="/api")
 
 
 @app.get("/health")
