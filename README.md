@@ -38,6 +38,36 @@ curl http://localhost:8000/health
 curl http://localhost:8000/health/db
 ```
 
+## Tenant-scoped writes (dev scaffolding)
+
+Create an organisation:
+
+```bash
+curl -X POST http://localhost:8000/api/organisations \
+  -H "Content-Type: application/json" \
+  -H "X-Actor-User-Id: 00000000-0000-0000-0000-000000000000" \
+  -d '{"name":"Acme Security"}'
+```
+
+Create a user in that organisation:
+
+```bash
+curl -X POST http://localhost:8000/api/organisations/<organisation_id>/users \
+  -H "Content-Type: application/json" \
+  -H "X-Actor-User-Id: 00000000-0000-0000-0000-000000000000" \
+  -d '{"email":"user@example.com","display_name":"Alex"}'
+```
+
+The `X-Actor-User-Id` header is optional dev-only scaffolding (until OIDC is
+implemented) and is used to attribute audit events when supplied.
+
+Check audit events with psql:
+
+```bash
+psql "$DATABASE_URL" \
+  -c "SELECT action, entity_type, entity_id, metadata, created_at FROM audit_event ORDER BY created_at DESC LIMIT 20;"
+```
+
 ## Frontend local dev
 
 ```bash
