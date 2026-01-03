@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.actor import get_actor
+from app.core.actor import get_actor, require_actor_user
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models import Organisation, UserAccount
 from app.db.session import get_db
@@ -53,24 +53,13 @@ def create_user_account(
     if not organisation:
         raise HTTPException(status_code=404, detail="Organisation not found")
 
-    actor_user_id = actor["actor_user_id"]
-    verified_actor_user_id: UUID | None = None
+    actor_user = require_actor_user(
+        db, actor["actor_user_id"], organisation_id
+    )
     metadata = {"email": payload.email, "display_name": payload.display_name}
 
     if actor.get("actor_email") and "actor_email" not in metadata:
         metadata["actor_email"] = actor["actor_email"]
-
-    if actor_user_id is not None:
-        actor_user = db.get(UserAccount, actor_user_id)
-        if actor_user is None:
-            if "actor_user_id_unverified" not in metadata:
-                metadata["actor_user_id_unverified"] = str(actor_user_id)
-        else:
-            if actor_user.organisation_id != organisation_id:
-                raise HTTPException(
-                    status_code=403, detail="Actor not in organisation"
-                )
-            verified_actor_user_id = actor_user_id
 
     user_account = UserAccount(
         organisation_id=organisation_id,
@@ -83,7 +72,7 @@ def create_user_account(
     emit_audit_event(
         db,
         organisation_id=organisation_id,
-        actor_user_id=verified_actor_user_id,
+        actor_user_id=actor_user.id,
         actor_email=actor.get("actor_email"),
         action="user_account.created",
         entity_type="user_account",

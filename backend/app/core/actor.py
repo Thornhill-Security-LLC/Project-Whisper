@@ -4,6 +4,9 @@ import logging
 from uuid import UUID
 
 from fastapi import Header, HTTPException
+from sqlalchemy.orm import Session
+
+from app.db.models import UserAccount
 
 logger = logging.getLogger(__name__)
 
@@ -13,15 +16,17 @@ def get_actor(
     x_actor_email: str | None = Header(default=None, alias="X-Actor-Email"),
 ) -> dict[str, UUID | str | None]:
     """Dev-only actor identity scaffolding until OIDC is in place."""
-    actor_user_id: UUID | None = None
+    if not x_actor_user_id:
+        raise HTTPException(
+            status_code=401, detail="X-Actor-User-Id header required"
+        )
 
-    if x_actor_user_id:
-        try:
-            actor_user_id = UUID(x_actor_user_id)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=400, detail="Invalid X-Actor-User-Id header"
-            ) from exc
+    try:
+        actor_user_id = UUID(x_actor_user_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=401, detail="Invalid X-Actor-User-Id header"
+        ) from exc
 
     if x_actor_email:
         logger.info(
@@ -29,3 +34,18 @@ def get_actor(
         )
 
     return {"actor_user_id": actor_user_id, "actor_email": x_actor_email}
+
+
+def require_actor_user(
+    db: Session, actor_user_id: UUID, organisation_id: UUID | None = None
+) -> UserAccount:
+    # Use 401 for missing/invalid/unknown actors and 403 for org mismatches.
+    actor_user = db.get(UserAccount, actor_user_id)
+    if actor_user is None:
+        raise HTTPException(status_code=401, detail="Actor user not found")
+    if organisation_id is not None:
+        if actor_user.organisation_id != organisation_id:
+            raise HTTPException(
+                status_code=403, detail="Actor not in organisation"
+            )
+    return actor_user

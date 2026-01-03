@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.actor import get_actor
+from app.core.actor import get_actor, require_actor_user
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models.organisation import Organisation
 from app.db.session import get_db
@@ -35,6 +35,7 @@ def create_organisation(
     db: Session = Depends(get_db),
     actor: dict[str, UUID | str | None] = Depends(get_actor),
 ) -> OrganisationOut:
+    actor_user = require_actor_user(db, actor["actor_user_id"])
     organisation = Organisation(name=payload.name)
     db.add(organisation)
     db.flush()
@@ -46,7 +47,7 @@ def create_organisation(
     emit_audit_event(
         db,
         organisation_id=organisation.id,
-        actor_user_id=actor["actor_user_id"],
+        actor_user_id=actor_user.id,
         actor_email=actor.get("actor_email"),
         action="organisation.created",
         entity_type="organisation",
