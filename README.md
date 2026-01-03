@@ -38,7 +38,14 @@ curl http://localhost:8000/health
 curl http://localhost:8000/health/db
 ```
 
-## Tenant-scoped writes (dev scaffolding)
+## Tenant-scoped reads + writes (dev scaffolding)
+
+For all `/api/organisations/{organisation_id}/*` endpoints, include a tenant
+context header that matches the path organisation ID:
+
+```bash
+X-Organisation-Id: <organisation_id>
+```
 
 Create an organisation:
 
@@ -48,10 +55,25 @@ curl -X POST http://localhost:8000/api/organisations \
   -d '{"name":"Acme Security"}'
 ```
 
+Fetch the organisation (requires tenant header):
+
+```bash
+curl http://localhost:8000/api/organisations/<organisation_id> \
+  -H "X-Organisation-Id: <organisation_id>"
+```
+
+List users in the organisation (requires tenant header):
+
+```bash
+curl http://localhost:8000/api/organisations/<organisation_id>/users \
+  -H "X-Organisation-Id: <organisation_id>"
+```
+
 Create a user in that organisation:
 
 ```bash
 curl -X POST http://localhost:8000/api/organisations/<organisation_id>/users \
+  -H "X-Organisation-Id: <organisation_id>" \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","display_name":"Alex"}'
 ```
@@ -59,9 +81,14 @@ curl -X POST http://localhost:8000/api/organisations/<organisation_id>/users \
 After a user exists, you may pass their ID as `X-Actor-User-Id` for subsequent
 tenant-scoped writes.
 
-If the organisation ID is invalid, the API returns a `404 Organisation not found`
-response. If a write fails because of a database conflict, the API returns
-`409 Write failed` without exposing database internals.
+If the `X-Organisation-Id` header does not match the path organisation ID, the
+API returns `403 Cross-organisation access denied`. If the organisation ID is
+invalid, the API returns a `404 Organisation not found` response. If a write
+fails because of a database conflict, the API returns `409 Write failed` without
+exposing database internals.
+
+`POST /api/organisations` is a bootstrap endpoint and does **not** require the
+`X-Organisation-Id` header because the organisation does not exist yet.
 
 The `X-Actor-User-Id` header is optional dev-only scaffolding (until OIDC is
 implemented) and is used to attribute audit events when supplied. If an actor ID
