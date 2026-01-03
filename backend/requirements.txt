@@ -7,3 +7,4 @@ pydantic
 pytest
 httpx
 python-multipart
+google-cloud-storage

@@ -17,3 +17,20 @@ def get_database_url() -> str:
     safe_password = quote_plus(password)
 
     return f"postgresql+psycopg://{safe_user}:{safe_password}@{host}:{port}/{database}"
+
+
+def get_evidence_storage_backend() -> str:
+    return os.getenv("EVIDENCE_STORAGE_BACKEND", "local").lower()
+
+
+def get_gcs_bucket_name() -> str | None:
+    return os.getenv("GCS_BUCKET_NAME")
+
+
+def get_gcs_signed_url_ttl_seconds() -> int:
+    value = os.getenv("GCS_SIGNED_URL_TTL_SECONDS", "300")
+    return int(value)
+
+
+def get_gcp_project_id() -> str | None:
+    return os.getenv("GCP_PROJECT_ID")
