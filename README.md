@@ -118,6 +118,36 @@ curl -X POST http://localhost:8000/api/organisations/<organisation_id>/risks/<ri
   -d '{"title":"Credential stuffing (expanded)","description":"Expanded scope","category":"security","likelihood":3,"impact":4,"status":"review","owner_user_id":"<actor_user_id>"}'
 ```
 
+Create a control:
+
+```bash
+curl -X POST http://localhost:8000/api/organisations/<organisation_id>/controls \
+  -H "X-Organisation-Id: <organisation_id>" \
+  -H "X-Actor-User-Id: <actor_user_id>" \
+  -H "Content-Type: application/json" \
+  -d '{"framework":"SOC2","control_code":"CC6.1","title":"Logical access","description":"Access controls are enforced","status":"Implemented","owner_user_id":"<actor_user_id>"}'
+```
+
+Create an evidence item:
+
+```bash
+curl -X POST http://localhost:8000/api/organisations/<organisation_id>/evidence \
+  -H "X-Organisation-Id: <organisation_id>" \
+  -H "X-Actor-User-Id: <actor_user_id>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Access policy","description":"Policy document","evidence_type":"policy","source":"manual","external_uri":"https://example.com/policy"}'
+```
+
+Link evidence to a control:
+
+```bash
+curl -X POST http://localhost:8000/api/organisations/<organisation_id>/controls/<control_id>/evidence \
+  -H "X-Organisation-Id: <organisation_id>" \
+  -H "X-Actor-User-Id: <actor_user_id>" \
+  -H "Content-Type: application/json" \
+  -d '{"evidence_item_id":"<evidence_item_id>"}'
+```
+
 All write endpoints (other than `/api/bootstrap`) require an `X-Actor-User-Id`
 header that refers to a user in the target organisation.
 
