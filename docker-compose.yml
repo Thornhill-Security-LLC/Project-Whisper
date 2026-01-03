@@ -24,6 +24,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-whisper}
       POSTGRES_USER: ${POSTGRES_USER:-whisper}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-whisper_dev_password}
+      EVIDENCE_LOCAL_ROOT: /app/.evidence_data
+    volumes:
+      - ./backend/.evidence_data:/app/.evidence_data
 
 volumes:
   postgres_data:

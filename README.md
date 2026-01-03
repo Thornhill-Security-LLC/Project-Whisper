@@ -137,6 +137,27 @@ curl -X POST http://localhost:8000/api/organisations/<organisation_id>/evidence 
   -d '{"title":"Access policy","description":"Policy document","evidence_type":"policy","source":"manual","external_uri":"https://example.com/policy"}'
 ```
 
+### Evidence Upload (local)
+
+Upload a file-backed evidence item:
+
+```bash
+curl -X POST "http://localhost:8000/api/organisations/$ORG_ID/evidence/upload" \
+  -H "X-Organisation-Id: $ORG_ID" \
+  -H "X-Actor-User-Id: $ADMIN_ID" \
+  -F "evidence_type=policy" \
+  -F "title=Security Policy" \
+  -F "file=@./README.md"
+```
+
+Download the evidence file:
+
+```bash
+curl -L -o downloaded.bin "http://localhost:8000/api/organisations/$ORG_ID/evidence/<EVIDENCE_ID>/download" \
+  -H "X-Organisation-Id: $ORG_ID" \
+  -H "X-Actor-User-Id: $ADMIN_ID"
+```
+
 Link evidence to a control:
 
 ```bash
