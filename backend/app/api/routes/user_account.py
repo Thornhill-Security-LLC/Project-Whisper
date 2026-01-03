@@ -20,7 +20,7 @@ def create_user_account(
     organisation_id: UUID,
     payload: UserAccountCreate,
     db: Session = Depends(get_db),
-    actor: dict[str, UUID | None] = Depends(get_actor),
+    actor: dict[str, UUID | str | None] = Depends(get_actor),
 ) -> UserAccount:
     organisation = db.get(Organisation, organisation_id)
     if not organisation:
@@ -34,17 +34,22 @@ def create_user_account(
     db.add(user_account)
     db.flush()
 
+    metadata = {
+        "email": user_account.email,
+        "display_name": user_account.display_name,
+    }
+    if actor.get("actor_email"):
+        metadata["actor_email"] = actor["actor_email"]
+
     emit_audit_event(
         db,
         organisation_id=organisation_id,
         actor_user_id=actor["actor_user_id"],
+        actor_email=actor.get("actor_email"),
         action="user_account.created",
         entity_type="user_account",
         entity_id=user_account.id,
-        metadata={
-            "email": user_account.email,
-            "display_name": user_account.display_name,
-        },
+        metadata=metadata,
     )
 
     try:

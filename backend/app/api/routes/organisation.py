@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,20 +17,25 @@ router = APIRouter(tags=["organisations"])
 def create_organisation(
     payload: OrganisationCreate,
     db: Session = Depends(get_db),
-    actor: dict[str, UUID | None] = Depends(get_actor),
+    actor: dict[str, UUID | str | None] = Depends(get_actor),
 ) -> Organisation:
     organisation = Organisation(name=payload.name)
     db.add(organisation)
     db.flush()
 
+    metadata = {"name": organisation.name}
+    if actor.get("actor_email"):
+        metadata["actor_email"] = actor["actor_email"]
+
     emit_audit_event(
         db,
         organisation_id=organisation.id,
         actor_user_id=actor["actor_user_id"],
+        actor_email=actor.get("actor_email"),
         action="organisation.created",
         entity_type="organisation",
         entity_id=organisation.id,
-        metadata={"name": organisation.name},
+        metadata=metadata,
     )
 
     try:
