@@ -45,7 +45,6 @@ Create an organisation:
 ```bash
 curl -X POST http://localhost:8000/api/organisations \
   -H "Content-Type: application/json" \
-  -H "X-Actor-User-Id: 00000000-0000-0000-0000-000000000000" \
   -d '{"name":"Acme Security"}'
 ```
 
@@ -54,16 +53,20 @@ Create a user in that organisation:
 ```bash
 curl -X POST http://localhost:8000/api/organisations/<organisation_id>/users \
   -H "Content-Type: application/json" \
-  -H "X-Actor-User-Id: 00000000-0000-0000-0000-000000000000" \
   -d '{"email":"user@example.com","display_name":"Alex"}'
 ```
+
+After a user exists, you may pass their ID as `X-Actor-User-Id` for subsequent
+tenant-scoped writes.
 
 If the organisation ID is invalid, the API returns a `404 Organisation not found`
 response. If a write fails because of a database conflict, the API returns
 `409 Write failed` without exposing database internals.
 
 The `X-Actor-User-Id` header is optional dev-only scaffolding (until OIDC is
-implemented) and is used to attribute audit events when supplied.
+implemented) and is used to attribute audit events when supplied. If an actor ID
+is provided but does not exist yet, it is treated as unverified and stored in
+audit metadata for traceability without breaking writes.
 
 Check audit events with psql:
 

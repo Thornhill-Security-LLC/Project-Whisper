@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def get_actor(
     x_actor_user_id: str | None = Header(default=None, alias="X-Actor-User-Id"),
     x_actor_email: str | None = Header(default=None, alias="X-Actor-Email"),
-) -> dict[str, UUID | None]:
+) -> dict[str, UUID | str | None]:
     """Dev-only actor identity scaffolding until OIDC is in place."""
     actor_user_id: UUID | None = None
 
@@ -28,4 +28,4 @@ def get_actor(
             "Using dev actor header", extra={"actor_email": x_actor_email}
         )
 
-    return {"actor_user_id": actor_user_id}
+    return {"actor_user_id": actor_user_id, "actor_email": x_actor_email}
