@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: backend
@@ -25,12 +28,13 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
         working-directory: backend
       - name: Compile backend
-        run: python -m compileall backend/app
+        run: python -m compileall app
+        working-directory: backend
       - name: Ruff
         run: ruff check .
         working-directory: backend
       - name: Pytest
-        run: pytest
+        run: PYTHONPATH=. pytest
         working-directory: backend
 
   backend-db:
@@ -68,7 +72,7 @@ jobs:
         run: alembic -c alembic.ini upgrade head
         working-directory: backend
       - name: Pytest (DB)
-        run: RUN_DB_TESTS=1 pytest
+        run: PYTHONPATH=. RUN_DB_TESTS=1 pytest
         working-directory: backend
 
   frontend:

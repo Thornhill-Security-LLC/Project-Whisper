@@ -4,6 +4,9 @@ backend-install:
 backend-test:
 	cd backend && pytest
 
+backend-lint:
+	cd backend && ruff check .
+
 backend-migrate:
 	cd backend && alembic -c alembic.ini upgrade head
 

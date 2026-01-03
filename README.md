@@ -20,8 +20,7 @@ docker compose up --build
 Run the database migrations:
 
 ```bash
-cd backend
-alembic -c alembic.ini upgrade head
+cd backend && alembic -c alembic.ini upgrade head
 ```
 
 Run the backend locally:
