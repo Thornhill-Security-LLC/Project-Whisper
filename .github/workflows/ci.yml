@@ -22,11 +22,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+          pip install -r requirements.txt -r requirements-dev.txt
+        working-directory: backend
       - name: Ruff
-        run: ruff check backend
+        run: ruff check .
+        working-directory: backend
       - name: Pytest
-        run: pytest backend
+        run: pytest
+        working-directory: backend
 
   frontend:
     name: frontend
