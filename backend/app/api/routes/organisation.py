@@ -5,12 +5,28 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.actor import get_actor
+from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models import Organisation
 from app.db.session import get_db
 from app.schemas.organisation import OrganisationCreate, OrganisationOut
 from app.services.audit import emit_audit_event
 
 router = APIRouter(tags=["organisations"])
+
+
+@router.get("/organisations/{organisation_id}", response_model=OrganisationOut)
+def get_organisation(
+    organisation_id: UUID,
+    tenant_org_id: UUID = Depends(require_tenant_context),
+    db: Session = Depends(get_db),
+) -> Organisation:
+    assert_path_matches_tenant(organisation_id, tenant_org_id)
+
+    organisation = db.get(Organisation, organisation_id)
+    if not organisation:
+        raise HTTPException(status_code=404, detail="Organisation not found")
+
+    return organisation
 
 
 @router.post("/organisations", response_model=OrganisationOut)
