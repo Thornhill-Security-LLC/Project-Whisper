@@ -15,10 +15,29 @@ from app.main import app
 )
 def test_create_organisation_returns_payload_and_audit_event() -> None:
     client = TestClient(app)
+
+    try:
+        with SessionLocal() as session:
+            actor_org = Organisation(name="Actor Org")
+            session.add(actor_org)
+            session.commit()
+            session.refresh(actor_org)
+
+            actor_user = UserAccount(
+                organisation_id=actor_org.id,
+                email="actor@example.com",
+                display_name="Actor User",
+            )
+            session.add(actor_user)
+            session.commit()
+            session.refresh(actor_user)
+    except Exception:
+        pytest.skip("Database is unavailable.")
+
     response = client.post(
         "/api/organisations",
         json={"name": "Acme Security"},
-        headers={"X-Actor-User-Id": "00000000-0000-0000-0000-000000000000"},
+        headers={"X-Actor-User-Id": str(actor_user.id)},
     )
 
     if response.status_code == 500:
@@ -39,6 +58,7 @@ def test_create_organisation_returns_payload_and_audit_event() -> None:
     assert event.action == "organisation.created"
     assert event.entity_type == "organisation"
     assert event.entity_id == UUID(payload["id"])
+    assert event.actor_user_id == actor_user.id
     assert event.metadata_ == {"name": "Acme Security"}
 
 

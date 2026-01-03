@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.actor import get_actor
+from app.core.actor import get_actor, require_actor_user
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models import Organisation, Risk, RiskVersion, UserAccount
 from app.db.session import get_db
@@ -35,18 +35,14 @@ def _require_risk_for_org(
     return risk
 
 
-def _resolve_actor_user_id(
-    db: Session, organisation_id: UUID, actor_user_id: UUID | None
-) -> UUID | None:
-    if actor_user_id is None:
-        return None
-
-    actor_user = db.get(UserAccount, actor_user_id)
-    if actor_user is None:
-        return None
-    if actor_user.organisation_id != organisation_id:
-        raise HTTPException(status_code=403, detail="Actor not in organisation")
-    return actor_user_id
+def _require_owner_user(
+    db: Session, organisation_id: UUID, owner_user_id: UUID
+) -> None:
+    owner_user = db.get(UserAccount, owner_user_id)
+    if owner_user is None or owner_user.organisation_id != organisation_id:
+        raise HTTPException(
+            status_code=400, detail="Owner user must belong to organisation"
+        )
 
 
 def _risk_out_from_latest(risk: Risk, version: RiskVersion) -> RiskOut:
@@ -83,9 +79,11 @@ def create_risk(
     if not organisation:
         raise HTTPException(status_code=404, detail="Organisation not found")
 
-    verified_actor_user_id = _resolve_actor_user_id(
-        db, organisation_id, actor["actor_user_id"]
+    actor_user = require_actor_user(
+        db, actor["actor_user_id"], organisation_id
     )
+    if payload.owner_user_id is not None:
+        _require_owner_user(db, organisation_id, payload.owner_user_id)
 
     risk = Risk(organisation_id=organisation_id)
     db.add(risk)
@@ -102,14 +100,14 @@ def create_risk(
         impact=payload.impact,
         status=payload.status,
         owner_user_id=payload.owner_user_id,
-        created_by_user_id=verified_actor_user_id,
+        created_by_user_id=actor_user.id,
     )
     db.add(risk_version)
 
     emit_audit_event(
         db,
         organisation_id=organisation_id,
-        actor_user_id=actor["actor_user_id"],
+        actor_user_id=actor_user.id,
         actor_email=actor.get("actor_email"),
         action="risk.created",
         entity_type="risk",
@@ -119,7 +117,7 @@ def create_risk(
     emit_audit_event(
         db,
         organisation_id=organisation_id,
-        actor_user_id=actor["actor_user_id"],
+        actor_user_id=actor_user.id,
         actor_email=actor.get("actor_email"),
         action="risk.version_created",
         entity_type="risk_version",
@@ -220,9 +218,11 @@ def create_risk_version(
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
     risk = _require_risk_for_org(db, organisation_id, risk_id)
-    verified_actor_user_id = _resolve_actor_user_id(
-        db, organisation_id, actor["actor_user_id"]
+    actor_user = require_actor_user(
+        db, actor["actor_user_id"], organisation_id
     )
+    if payload.owner_user_id is not None:
+        _require_owner_user(db, organisation_id, payload.owner_user_id)
 
     next_version = (
         db.execute(
@@ -245,14 +245,14 @@ def create_risk_version(
         impact=payload.impact,
         status=payload.status,
         owner_user_id=payload.owner_user_id,
-        created_by_user_id=verified_actor_user_id,
+        created_by_user_id=actor_user.id,
     )
     db.add(risk_version)
 
     emit_audit_event(
         db,
         organisation_id=organisation_id,
-        actor_user_id=actor["actor_user_id"],
+        actor_user_id=actor_user.id,
         actor_email=actor.get("actor_email"),
         action="risk.version_created",
         entity_type="risk_version",

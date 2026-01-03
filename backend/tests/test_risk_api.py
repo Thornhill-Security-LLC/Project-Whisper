@@ -158,3 +158,87 @@ def test_create_risk_version_increments_version() -> None:
 
     assert len(versions) == 2
     assert {version.version for version in versions} == {1, 2}
+
+
+@pytest.mark.skipif(
+    os.getenv("RUN_DB_TESTS") != "1", reason="Database tests are disabled."
+)
+def test_create_risk_requires_actor_header() -> None:
+    client = TestClient(app)
+
+    try:
+        with SessionLocal() as session:
+            organisation = Organisation(name="Actor Required Org")
+            session.add(organisation)
+            session.commit()
+            session.refresh(organisation)
+    except Exception:
+        pytest.skip("Database is unavailable.")
+
+    response = client.post(
+        f"/api/organisations/{organisation.id}/risks",
+        json={
+            "title": "Risk without actor",
+            "description": "No actor header",
+            "category": "security",
+            "likelihood": 2,
+            "impact": 3,
+            "status": "open",
+        },
+        headers={"X-Organisation-Id": str(organisation.id)},
+    )
+
+    if response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "X-Actor-User-Id header required"
+
+
+@pytest.mark.skipif(
+    os.getenv("RUN_DB_TESTS") != "1", reason="Database tests are disabled."
+)
+def test_create_risk_rejects_actor_from_other_org() -> None:
+    client = TestClient(app)
+
+    try:
+        with SessionLocal() as session:
+            target_org = Organisation(name="Risk Target Org")
+            actor_org = Organisation(name="Risk Actor Org")
+            session.add_all([target_org, actor_org])
+            session.commit()
+            session.refresh(target_org)
+            session.refresh(actor_org)
+
+            actor_user = UserAccount(
+                organisation_id=actor_org.id,
+                email="risk-actor@example.com",
+                display_name="Risk Actor",
+            )
+            session.add(actor_user)
+            session.commit()
+            session.refresh(actor_user)
+    except Exception:
+        pytest.skip("Database is unavailable.")
+
+    response = client.post(
+        f"/api/organisations/{target_org.id}/risks",
+        json={
+            "title": "Cross-org risk",
+            "description": "Actor from another org",
+            "category": "security",
+            "likelihood": 2,
+            "impact": 3,
+            "status": "open",
+        },
+        headers={
+            "X-Organisation-Id": str(target_org.id),
+            "X-Actor-User-Id": str(actor_user.id),
+        },
+    )
+
+    if response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Actor not in organisation"
