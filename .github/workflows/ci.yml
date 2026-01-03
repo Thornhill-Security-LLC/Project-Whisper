@@ -24,11 +24,51 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt
         working-directory: backend
+      - name: Compile backend
+        run: python -m compileall backend/app
       - name: Ruff
         run: ruff check .
         working-directory: backend
       - name: Pytest
         run: pytest
+        working-directory: backend
+
+  backend-db:
+    name: backend-db
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: whisper
+          POSTGRES_PASSWORD: whisper_dev_password
+          POSTGRES_DB: whisper
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U whisper -d whisper"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    env:
+      DATABASE_URL: postgresql+psycopg://whisper:whisper_dev_password@localhost:5432/whisper
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+        working-directory: backend
+      - name: Run migrations
+        run: alembic -c alembic.ini upgrade head
+        working-directory: backend
+      - name: Pytest (DB)
+        run: RUN_DB_TESTS=1 pytest
         working-directory: backend
 
   frontend:
