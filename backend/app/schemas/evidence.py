@@ -23,9 +23,13 @@ class EvidenceOut(BaseModel):
     evidence_type: str
     source: str | None
     external_uri: str | None
+    storage_backend: str | None
+    object_key: str | None
+    original_filename: str | None
     sha256: str | None
     content_type: str | None
     size_bytes: int | None
+    uploaded_at: datetime | None
     created_by_user_id: UUID | None
     created_at: datetime
 
