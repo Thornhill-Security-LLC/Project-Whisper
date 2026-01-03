@@ -78,6 +78,33 @@ curl -X POST http://localhost:8000/api/organisations/<organisation_id>/users \
   -d '{"email":"user@example.com","display_name":"Alex"}'
 ```
 
+Create a risk:
+
+```bash
+curl -X POST http://localhost:8000/api/organisations/<organisation_id>/risks \
+  -H "X-Organisation-Id: <organisation_id>" \
+  -H "X-Actor-User-Id: <actor_user_id>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Credential stuffing","description":"Abuse of reused credentials","category":"security","likelihood":4,"impact":5,"status":"open","owner_user_id":"<actor_user_id>"}'
+```
+
+List risks:
+
+```bash
+curl http://localhost:8000/api/organisations/<organisation_id>/risks \
+  -H "X-Organisation-Id: <organisation_id>"
+```
+
+Create a new risk version:
+
+```bash
+curl -X POST http://localhost:8000/api/organisations/<organisation_id>/risks/<risk_id>/versions \
+  -H "X-Organisation-Id: <organisation_id>" \
+  -H "X-Actor-User-Id: <actor_user_id>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Credential stuffing (expanded)","description":"Expanded scope","category":"security","likelihood":3,"impact":4,"status":"review","owner_user_id":"<actor_user_id>"}'
+```
+
 After a user exists, you may pass their ID as `X-Actor-User-Id` for subsequent
 tenant-scoped writes.
 
