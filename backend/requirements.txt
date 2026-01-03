@@ -6,3 +6,4 @@ alembic>=1.13
 pydantic
 pytest
 httpx
+python-multipart
