@@ -1,9 +1,8 @@
-from fastapi import Depends, FastAPI
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from backend.app.db.session import get_db
+from app.db.session import get_db
 
 app = FastAPI()
 
@@ -17,10 +16,9 @@ def health() -> dict[str, str]:
 def health_db(db: Session = Depends(get_db)) -> dict[str, str]:
     try:
         db.execute(text("SELECT 1"))
-    except Exception:
-        return JSONResponse(
-            status_code=500,
-            content={"status": "error", "error": "Database connection failed"},
-        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail="Database connection failed"
+        ) from exc
 
     return {"status": "ok"}

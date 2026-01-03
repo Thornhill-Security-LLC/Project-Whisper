@@ -6,9 +6,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_DB: whisper
-      POSTGRES_USER: whisper
-      POSTGRES_PASSWORD: whisper_dev_password
+      POSTGRES_DB: ${POSTGRES_DB:-whisper}
+      POSTGRES_USER: ${POSTGRES_USER:-whisper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-whisper_dev_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -20,11 +20,11 @@ services:
     depends_on:
       - postgres
     environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: whisper
-      POSTGRES_USER: whisper
-      POSTGRES_PASSWORD: whisper_dev_password
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-whisper}
+      POSTGRES_USER: ${POSTGRES_USER:-whisper}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-whisper_dev_password}
 
 volumes:
   postgres_data:

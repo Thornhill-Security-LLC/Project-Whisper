@@ -20,7 +20,15 @@ docker compose up --build
 Run the database migrations:
 
 ```bash
-make db-migrate
+cd backend
+alembic upgrade head
+```
+
+Run the backend locally:
+
+```bash
+cd backend
+uvicorn app.main:app --reload --port 8000
 ```
 
 Verify the backend health checks:

@@ -7,11 +7,11 @@ import sys
 from alembic import context
 from sqlalchemy import create_engine, pool
 
-sys.path.append(str(Path(__file__).resolve().parents[2]))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from backend.app.core.config import get_database_url
-from backend.app.db.base import Base
-from backend.app.db import models  # noqa: F401
+from app.core.config import get_database_url
+from app.db.base import Base
+from app.db import models  # noqa: F401
 
 config = context.config
 
