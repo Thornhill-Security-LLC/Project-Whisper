@@ -34,3 +34,8 @@ class EvidenceOut(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EvidenceDownloadUrl(BaseModel):
+    url: str
+    expires_in: int

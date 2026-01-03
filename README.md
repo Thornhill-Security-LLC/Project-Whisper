@@ -158,6 +158,37 @@ curl -L -o downloaded.bin "http://localhost:8000/api/organisations/$ORG_ID/evide
   -H "X-Actor-User-Id: $ADMIN_ID"
 ```
 
+## Evidence storage backends
+
+Evidence uploads default to the local filesystem backend. To switch to Google Cloud Storage (GCS), configure the backend
+environment variables before starting the backend service.
+
+### Configuration
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `EVIDENCE_STORAGE_BACKEND` | Evidence storage backend (`local` or `gcs`). | `local` |
+| `GCS_BUCKET_NAME` | GCS bucket name (required when backend is `gcs`). | — |
+| `GCS_SIGNED_URL_TTL_SECONDS` | TTL for signed download URLs. | `300` |
+| `GCP_PROJECT_ID` | Optional GCP project ID (client can infer if omitted). | — |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to a service account JSON for local dev. | — |
+
+### Enable GCS locally
+
+```bash
+export EVIDENCE_STORAGE_BACKEND=gcs
+export GCS_BUCKET_NAME=your-evidence-bucket
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+```
+
+When the backend is set to `gcs`, download via signed URLs:
+
+```bash
+curl "http://localhost:8000/api/organisations/$ORG_ID/evidence/<EVIDENCE_ID>/download-url" \
+  -H "X-Organisation-Id: $ORG_ID" \
+  -H "X-Actor-User-Id: $ADMIN_ID"
+```
+
 Link evidence to a control:
 
 ```bash

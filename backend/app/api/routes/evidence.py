@@ -11,16 +11,18 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_gcs_signed_url_ttl_seconds
 from app.core.actor import get_actor, require_actor_user
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models import EvidenceItem, Organisation
 from app.db.session import get_db
-from app.schemas.evidence import EvidenceCreate, EvidenceOut
+from app.schemas.evidence import EvidenceCreate, EvidenceDownloadUrl, EvidenceOut
 from app.services.audit import emit_audit_event
 from app.services.evidence_storage import (
     EvidenceStorageCollision,
     EvidenceStorageError,
     LocalEvidenceStorage,
+    get_evidence_storage,
 )
 
 router = APIRouter(tags=["evidence"])
@@ -144,8 +146,12 @@ async def upload_evidence_file(
 
     storage = LocalEvidenceStorage()
     try:
-        object_key, sha256, size_bytes = storage.store_file(
-            organisation_id, evidence.id, filename, file_bytes
+        object_key, sha256, size_bytes, content_type = storage.store_file(
+            organisation_id,
+            evidence.id,
+            filename,
+            file_bytes,
+            file.content_type,
         )
     except EvidenceStorageCollision as exc:
         db.rollback()
@@ -154,12 +160,12 @@ async def upload_evidence_file(
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    evidence.storage_backend = "local"
+    evidence.storage_backend = storage.backend
     evidence.object_key = object_key
     evidence.original_filename = filename
     evidence.sha256 = sha256
     evidence.size_bytes = size_bytes
-    evidence.content_type = file.content_type
+    evidence.content_type = content_type
     evidence.uploaded_at = datetime.now(timezone.utc)
 
     emit_audit_event(
@@ -174,6 +180,8 @@ async def upload_evidence_file(
             "sha256": sha256,
             "filename": filename,
             "size_bytes": size_bytes,
+            "backend": storage.backend,
+            "object_key": object_key,
         },
     )
 
@@ -210,11 +218,20 @@ def download_evidence_file(
             status_code=404, detail="Evidence file not available"
         )
     if evidence.storage_backend != "local":
+        if evidence.storage_backend == "gcs":
+            raise HTTPException(
+                status_code=409,
+                detail="Use /download-url for gcs backend",
+            )
         raise HTTPException(
             status_code=409, detail="Evidence storage backend unsupported"
         )
 
-    storage = LocalEvidenceStorage()
+    try:
+        storage = get_evidence_storage()
+    except EvidenceStorageError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
         file_handle = storage.open_file(evidence.object_key)
     except FileNotFoundError as exc:
@@ -257,6 +274,73 @@ def download_evidence_file(
         headers=headers,
         background=BackgroundTask(file_handle.close),
     )
+
+
+@router.get(
+    "/organisations/{organisation_id}/evidence/{evidence_id}/download-url",
+    response_model=EvidenceDownloadUrl,
+)
+def create_evidence_download_url(
+    organisation_id: UUID,
+    evidence_id: UUID,
+    tenant_org_id: UUID = Depends(require_tenant_context),
+    db: Session = Depends(get_db),
+    actor: dict[str, UUID | str | None] = Depends(get_actor),
+) -> EvidenceDownloadUrl:
+    assert_path_matches_tenant(organisation_id, tenant_org_id)
+    actor_user = require_actor_user(
+        db, actor["actor_user_id"], organisation_id
+    )
+
+    evidence = db.get(EvidenceItem, evidence_id)
+    if evidence is None or evidence.organisation_id != organisation_id:
+        raise HTTPException(status_code=404, detail="Evidence item not found")
+    if not evidence.storage_backend or not evidence.object_key:
+        raise HTTPException(
+            status_code=404, detail="Evidence file not available"
+        )
+    if evidence.storage_backend != "gcs":
+        raise HTTPException(
+            status_code=409, detail="Evidence storage backend unsupported"
+        )
+
+    try:
+        storage = get_evidence_storage()
+    except EvidenceStorageError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if storage.backend != "gcs":
+        raise HTTPException(
+            status_code=409, detail="Evidence storage backend unsupported"
+        )
+
+    ttl_seconds = get_gcs_signed_url_ttl_seconds()
+    filename = evidence.original_filename or f"{evidence.id}.bin"
+    url = storage.generate_signed_download_url(
+        evidence.object_key,
+        filename,
+        evidence.content_type,
+        ttl_seconds,
+    )
+
+    emit_audit_event(
+        db,
+        organisation_id=organisation_id,
+        actor_user_id=actor_user.id,
+        actor_email=actor.get("actor_email"),
+        action="evidence_item.download_url_generated",
+        entity_type="evidence_item",
+        entity_id=evidence.id,
+        metadata={
+            "ttl_seconds": ttl_seconds,
+            "backend": evidence.storage_backend,
+        },
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+
+    return EvidenceDownloadUrl(url=url, expires_in=ttl_seconds)
 
 
 def _should_emit_download_audit() -> bool:
