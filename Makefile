@@ -1,11 +1,11 @@
 backend-install:
-	pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+	cd backend && pip install -r requirements.txt -r requirements-dev.txt
 
 backend-test:
-	pytest backend/tests
+	cd backend && ruff check . && pytest
 
 db-migrate:
-	alembic -c backend/alembic.ini upgrade head
+	cd backend && alembic upgrade head
 
 up:
 	docker compose up --build

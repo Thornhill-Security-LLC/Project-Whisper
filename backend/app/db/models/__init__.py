@@ -1,5 +1,5 @@
-from backend.app.db.models.audit_event import AuditEvent
-from backend.app.db.models.organisation import Organisation
-from backend.app.db.models.user_account import UserAccount
+from app.db.models.audit_event import AuditEvent
+from app.db.models.organisation import Organisation
+from app.db.models.user_account import UserAccount
 
 __all__ = ["AuditEvent", "Organisation", "UserAccount"]
