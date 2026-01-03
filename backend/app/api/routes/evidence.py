@@ -222,8 +222,8 @@ def download_evidence_file(
     except EvidenceStorageError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    filename = (evidence.original_filename or f\"{evidence.id}.bin\").replace(
-        "\"", ""
+    filename = (evidence.original_filename or f"{evidence.id}.bin").replace(
+        '"', ""
     )
     headers = {
         "Content-Disposition": f'attachment; filename="{filename}"'
