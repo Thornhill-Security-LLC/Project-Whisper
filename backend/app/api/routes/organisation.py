@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.actor import get_actor
@@ -32,6 +33,11 @@ def create_organisation(
         metadata={"name": organisation.name},
     )
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Write failed")
+
     db.refresh(organisation)
     return organisation

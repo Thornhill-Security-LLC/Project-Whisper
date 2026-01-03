@@ -58,6 +58,10 @@ curl -X POST http://localhost:8000/api/organisations/<organisation_id>/users \
   -d '{"email":"user@example.com","display_name":"Alex"}'
 ```
 
+If the organisation ID is invalid, the API returns a `404 Organisation not found`
+response. If a write fails because of a database conflict, the API returns
+`409 Write failed` without exposing database internals.
+
 The `X-Actor-User-Id` header is optional dev-only scaffolding (until OIDC is
 implemented) and is used to attribute audit events when supplied.
 
