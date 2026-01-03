@@ -198,7 +198,9 @@ def download_evidence_file(
     actor: dict[str, UUID | str | None] = Depends(get_actor),
 ) -> StreamingResponse:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
-    require_actor_user(db, actor["actor_user_id"], organisation_id)
+    actor_user = require_actor_user(
+        db, actor["actor_user_id"], organisation_id
+    )
 
     evidence = db.get(EvidenceItem, evidence_id)
     if evidence is None or evidence.organisation_id != organisation_id:
@@ -234,7 +236,7 @@ def download_evidence_file(
         emit_audit_event(
             db,
             organisation_id=organisation_id,
-            actor_user_id=actor["actor_user_id"],
+            actor_user_id=actor_user.id,
             actor_email=actor.get("actor_email"),
             action="evidence_item.downloaded",
             entity_type="evidence_item",
