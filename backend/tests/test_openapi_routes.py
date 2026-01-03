@@ -1,8 +1,13 @@
+from fastapi.testclient import TestClient
+
 from app.main import app
 
 
 def test_openapi_includes_api_routes() -> None:
-    schema = app.openapi()
+    client = TestClient(app)
+    response = client.get("/openapi.json")
+    assert response.status_code == 200
+    schema = response.json()
     assert "/api/organisations" in schema["paths"]
     assert "/api/organisations/{organisation_id}" in schema["paths"]
     assert "/api/organisations/{organisation_id}/users" in schema["paths"]

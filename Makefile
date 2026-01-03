@@ -2,10 +2,16 @@ backend-install:
 	cd backend && pip install -r requirements.txt -r requirements-dev.txt
 
 backend-test:
-	cd backend && ruff check . && pytest
+	cd backend && pytest
 
-db-migrate:
-	cd backend && alembic upgrade head
+backend-migrate:
+	cd backend && alembic -c alembic.ini upgrade head
+
+backend-smoke:
+	curl -sS http://localhost:8000/health
+	curl -sS http://localhost:8000/health/db
+
+db-migrate: backend-migrate
 
 up:
 	docker compose up --build

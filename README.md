@@ -21,7 +21,7 @@ Run the database migrations:
 
 ```bash
 cd backend
-alembic upgrade head
+alembic -c alembic.ini upgrade head
 ```
 
 Run the backend locally:
