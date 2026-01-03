@@ -6,6 +6,14 @@ from app.schemas.risk import (
     RiskVersionCreate,
     RiskVersionOut,
 )
+from app.schemas.control import (
+    ControlCreate,
+    ControlEvidenceLinkCreate,
+    ControlEvidenceLinkOut,
+    ControlOut,
+    ControlVersionCreate,
+)
+from app.schemas.evidence import EvidenceCreate, EvidenceOut
 from app.schemas.user_account import UserAccountCreate, UserAccountOut
 
 __all__ = [
@@ -17,6 +25,13 @@ __all__ = [
     "RiskOut",
     "RiskVersionCreate",
     "RiskVersionOut",
+    "ControlCreate",
+    "ControlEvidenceLinkCreate",
+    "ControlEvidenceLinkOut",
+    "ControlOut",
+    "ControlVersionCreate",
+    "EvidenceCreate",
+    "EvidenceOut",
     "UserAccountCreate",
     "UserAccountOut",
 ]
