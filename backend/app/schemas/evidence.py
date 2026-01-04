@@ -36,6 +36,6 @@ class EvidenceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class EvidenceDownloadUrl(BaseModel):
+class EvidenceDownloadUrlOut(BaseModel):
     url: str
     expires_in: int
