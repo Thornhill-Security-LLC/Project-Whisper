@@ -317,7 +317,6 @@ def create_evidence_download_url(
     url = storage.generate_signed_download_url(
         evidence.object_key,
         filename,
-        evidence.content_type,
         ttl_seconds,
     )
 

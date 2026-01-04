@@ -61,7 +61,7 @@ def test_evidence_download_url_uses_gcs_backend(monkeypatch) -> None:
         backend = "gcs"
 
         def generate_signed_download_url(
-            self, object_key: str, filename: str, content_type: str | None, ttl_seconds: int
+            self, object_key: str, filename: str, ttl_seconds: int
         ) -> str:
             return f"https://signed.example.com/{object_key}?ttl={ttl_seconds}"
 
