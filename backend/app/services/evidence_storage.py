@@ -159,17 +159,27 @@ class GcsEvidenceStorage:
         filename: str,
         ttl_seconds: int,
     ) -> str:
-        safe_filename = _sanitize_filename(filename)
-        response_disposition = (
-            f'attachment; filename="{safe_filename}"'
+        bucket = self.client.bucket(self.bucket_name)
+        return generate_gcs_signed_url(
+            bucket, object_key, filename, ttl_seconds
         )
-        blob = self.client.bucket(self.bucket_name).blob(object_key)
-        return blob.generate_signed_url(
-            version="v4",
-            expiration=ttl_seconds,
-            method="GET",
-            response_disposition=response_disposition,
-        )
+
+
+def generate_gcs_signed_url(
+    bucket,
+    object_key: str,
+    filename: str,
+    ttl_seconds: int,
+) -> str:
+    safe_filename = _sanitize_filename(filename)
+    response_disposition = f'attachment; filename="{safe_filename}"'
+    blob = bucket.blob(object_key)
+    return blob.generate_signed_url(
+        version="v4",
+        expiration=ttl_seconds,
+        method="GET",
+        response_disposition=response_disposition,
+    )
 
 
 def get_evidence_storage() -> LocalEvidenceStorage | GcsEvidenceStorage:

@@ -57,18 +57,28 @@ def test_evidence_download_url_uses_gcs_backend(monkeypatch) -> None:
     except Exception:
         pytest.skip("Database is unavailable.")
 
+    class FakeBucket:
+        pass
+
+    class FakeClient:
+        def bucket(self, bucket_name: str) -> FakeBucket:
+            return FakeBucket()
+
     class FakeGcsStorage:
         backend = "gcs"
-
-        def generate_signed_download_url(
-            self, object_key: str, filename: str, ttl_seconds: int
-        ) -> str:
-            return f"https://signed.example.com/{object_key}?ttl={ttl_seconds}"
+        bucket_name = "test-bucket"
+        client = FakeClient()
 
     monkeypatch.setenv("GCS_SIGNED_URL_TTL_SECONDS", "120")
     monkeypatch.setattr(
         "app.services.evidence_storage.get_evidence_storage",
         lambda: FakeGcsStorage(),
+    )
+    monkeypatch.setattr(
+        "app.services.evidence_storage.generate_gcs_signed_url",
+        lambda bucket, object_key, filename, ttl_seconds: (
+            f"https://signed.example.com/{object_key}?ttl={ttl_seconds}"
+        ),
     )
 
     response = client.get(

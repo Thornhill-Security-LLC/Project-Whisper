@@ -22,6 +22,7 @@ from app.services.evidence_storage import (
     EvidenceStorageCollision,
     EvidenceStorageError,
     LocalEvidenceStorage,
+    generate_gcs_signed_url,
     get_evidence_storage,
 )
 
@@ -314,7 +315,9 @@ def create_evidence_download_url(
 
     ttl_seconds = get_gcs_signed_url_ttl_seconds()
     filename = evidence.original_filename or f"{evidence.id}.bin"
-    url = storage.generate_signed_download_url(
+    bucket = storage.client.bucket(storage.bucket_name)
+    url = generate_gcs_signed_url(
+        bucket,
         evidence.object_key,
         filename,
         ttl_seconds,
