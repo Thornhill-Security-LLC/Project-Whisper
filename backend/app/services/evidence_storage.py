@@ -79,7 +79,6 @@ class LocalEvidenceStorage:
         self,
         object_key: str,
         filename: str,
-        content_type: str | None,
         ttl_seconds: int,
     ) -> str:
         raise NotImplementedError("Signed URLs are not available for local storage.")
@@ -158,7 +157,6 @@ class GcsEvidenceStorage:
         self,
         object_key: str,
         filename: str,
-        content_type: str | None,
         ttl_seconds: int,
     ) -> str:
         safe_filename = _sanitize_filename(filename)
@@ -171,7 +169,6 @@ class GcsEvidenceStorage:
             expiration=ttl_seconds,
             method="GET",
             response_disposition=response_disposition,
-            response_type=content_type or "application/octet-stream",
         )
 
 

@@ -86,7 +86,6 @@ def test_gcs_signed_url_uses_sanitized_filename_and_ttl() -> None:
     url = storage.generate_signed_download_url(
         "evidence/key",
         'folder/Report "Q1".pdf',
-        None,
         120,
     )
 
@@ -95,7 +94,6 @@ def test_gcs_signed_url_uses_sanitized_filename_and_ttl() -> None:
     assert storage.client.last_bucket == "evidence-bucket"
     assert storage.client.bucket_instance.last_object_key == "evidence/key"
     assert fake_blob.kwargs["expiration"] == 120
-    assert fake_blob.kwargs["response_type"] == "application/octet-stream"
     assert (
         fake_blob.kwargs["response_disposition"]
         == 'attachment; filename="Report_Q1.pdf"'
