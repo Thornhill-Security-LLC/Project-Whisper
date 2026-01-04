@@ -144,7 +144,11 @@ async def upload_evidence_file(
     db.add(evidence)
     db.flush()
 
-    storage = LocalEvidenceStorage()
+    try:
+        storage = get_evidence_storage()
+    except EvidenceStorageError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
         object_key, sha256, size_bytes, content_type = storage.store_file(
             organisation_id,
@@ -221,17 +225,14 @@ def download_evidence_file(
         if evidence.storage_backend == "gcs":
             raise HTTPException(
                 status_code=409,
-                detail="Use /download-url for gcs backend",
+                detail="Evidence stored in GCS; use /download-url.",
             )
         raise HTTPException(
             status_code=409, detail="Evidence storage backend unsupported"
         )
 
     try:
-        storage = get_evidence_storage()
-    except EvidenceStorageError as exc:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        storage = LocalEvidenceStorage()
     try:
         file_handle = storage.open_file(evidence.object_key)
     except FileNotFoundError as exc:
