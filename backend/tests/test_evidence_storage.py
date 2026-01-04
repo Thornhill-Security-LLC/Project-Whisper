@@ -2,6 +2,7 @@ import hashlib
 from uuid import UUID
 
 from app.services.evidence_storage import (
+    GcsEvidenceStorage,
     LocalEvidenceStorage,
     _sanitize_filename,
     build_object_key,
@@ -49,3 +50,53 @@ def test_local_storage_returns_sha_size_and_content_type(tmp_path) -> None:
     stored_path = tmp_path / stored["object_key"]
     assert stored_path.exists()
     assert stored_path.read_bytes() == file_bytes
+
+
+def test_gcs_signed_url_uses_sanitized_filename_and_ttl() -> None:
+    class FakeBlob:
+        def __init__(self) -> None:
+            self.kwargs: dict[str, object] = {}
+
+        def generate_signed_url(self, **kwargs: object) -> str:
+            self.kwargs = kwargs
+            return "https://signed.example.com/evidence/key"
+
+    class FakeBucket:
+        def __init__(self) -> None:
+            self.last_object_key: str | None = None
+            self.blob_instance = FakeBlob()
+
+        def blob(self, object_key: str) -> FakeBlob:
+            self.last_object_key = object_key
+            return self.blob_instance
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.last_bucket: str | None = None
+            self.bucket_instance = FakeBucket()
+
+        def bucket(self, bucket_name: str) -> FakeBucket:
+            self.last_bucket = bucket_name
+            return self.bucket_instance
+
+    storage = GcsEvidenceStorage.__new__(GcsEvidenceStorage)
+    storage.bucket_name = "evidence-bucket"
+    storage.client = FakeClient()
+
+    url = storage.generate_signed_download_url(
+        "evidence/key",
+        'folder/Report "Q1".pdf',
+        None,
+        120,
+    )
+
+    assert url == "https://signed.example.com/evidence/key"
+    fake_blob = storage.client.bucket_instance.blob_instance
+    assert storage.client.last_bucket == "evidence-bucket"
+    assert storage.client.bucket_instance.last_object_key == "evidence/key"
+    assert fake_blob.kwargs["expiration"] == 120
+    assert fake_blob.kwargs["response_type"] == "application/octet-stream"
+    assert (
+        fake_blob.kwargs["response_disposition"]
+        == 'attachment; filename="Report_Q1.pdf"'
+    )

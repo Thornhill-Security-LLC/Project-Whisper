@@ -162,6 +162,9 @@ curl -L -o downloaded.bin "http://localhost:8000/api/organisations/$ORG_ID/evide
   -H "X-Actor-User-Id: $ADMIN_ID"
 ```
 
+If evidence is stored in GCS, `/download` returns `409 Evidence stored in GCS; use /download-url.`. If evidence is stored
+locally, `/download-url` returns `409 Evidence stored locally; use /download.`.
+
 ## Evidence storage backends
 
 Evidence uploads default to the local filesystem backend. To switch to Google Cloud Storage (GCS), configure the backend
@@ -191,6 +194,12 @@ When the backend is set to `gcs`, download via signed URLs:
 curl "http://localhost:8000/api/organisations/$ORG_ID/evidence/<EVIDENCE_ID>/download-url" \
   -H "X-Organisation-Id: $ORG_ID" \
   -H "X-Actor-User-Id: $ADMIN_ID"
+```
+
+The response contains the signed URL and TTL:
+
+```json
+{"url":"https://storage.googleapis.com/...","expires_in":300}
 ```
 
 Upload evidence to GCS using the same upload endpoint:
