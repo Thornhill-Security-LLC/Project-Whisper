@@ -39,6 +39,60 @@ curl http://localhost:8000/health
 curl http://localhost:8000/health/db
 ```
 
+## Local Quickstart (5 minutes)
+
+Run these steps from the repo root using the Makefile harness:
+
+1) **Start the stack**
+
+```bash
+make up
+```
+
+Starts Docker Compose in the background. Next: run migrations.
+
+2) **Run migrations**
+
+```bash
+make migrate
+```
+
+Applies Alembic migrations inside the backend container. Next: check health.
+
+3) **Check health**
+
+```bash
+make health
+```
+
+Prints `/health` and `/health/db` JSON responses. Next: bootstrap IDs.
+
+4) **Bootstrap an org + admin**
+
+```bash
+make bootstrap
+```
+
+Prints `ORG_ID` and `ADMIN_ID`, and writes them to `.dev_ids.env` for reuse.
+
+5) **Upload sample evidence**
+
+```bash
+make upload
+```
+
+Uploads `README.md` by default, prints `EVIDENCE_ID`, and appends it to `.dev_ids.env`.
+If storage is local, it downloads the file to `downloaded_README.md`. If storage is GCS,
+it writes the signed download URL to `gcs_download.md`.
+
+6) **Show evidence routes**
+
+```bash
+make routes
+```
+
+Prints the evidence-related OpenAPI routes so you can explore downloads and links.
+
 ## Tenant-scoped reads + writes (dev scaffolding)
 
 For all `/api/organisations/{organisation_id}/*` endpoints, include a tenant
