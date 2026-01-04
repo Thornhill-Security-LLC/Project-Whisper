@@ -13,6 +13,11 @@ def test_sanitize_filename_strips_paths_and_controls() -> None:
     assert _sanitize_filename(filename) == "report_.pdf"
 
 
+def test_sanitize_filename_falls_back_when_empty() -> None:
+    filename = "///"
+    assert _sanitize_filename(filename) == "evidence.bin"
+
+
 def test_build_object_key_uses_sha_and_sanitized_name() -> None:
     org_id = UUID("11111111-1111-1111-1111-111111111111")
     evidence_id = UUID("22222222-2222-2222-2222-222222222222")
@@ -30,7 +35,7 @@ def test_local_storage_returns_sha_size_and_content_type(tmp_path) -> None:
     storage = LocalEvidenceStorage(root=str(tmp_path))
     file_bytes = b"evidence bytes"
     expected_sha = hashlib.sha256(file_bytes).hexdigest()
-    object_key, sha256, size_bytes, content_type = storage.store_file(
+    stored = storage.store_file(
         UUID("33333333-3333-3333-3333-333333333333"),
         UUID("44444444-4444-4444-4444-444444444444"),
         "report.pdf",
@@ -38,9 +43,9 @@ def test_local_storage_returns_sha_size_and_content_type(tmp_path) -> None:
         "application/pdf",
     )
 
-    assert sha256 == expected_sha
-    assert size_bytes == len(file_bytes)
-    assert content_type == "application/pdf"
-    stored_path = tmp_path / object_key
+    assert stored["sha256"] == expected_sha
+    assert stored["size_bytes"] == len(file_bytes)
+    assert stored["content_type"] == "application/pdf"
+    stored_path = tmp_path / stored["object_key"]
     assert stored_path.exists()
     assert stored_path.read_bytes() == file_bytes

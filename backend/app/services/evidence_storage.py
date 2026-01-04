@@ -35,7 +35,7 @@ class LocalEvidenceStorage:
         filename: str,
         file_bytes: bytes,
         content_type: str | None = None,
-    ) -> tuple[str, str, int, str | None]:
+    ) -> dict[str, str | int | None]:
         sha256 = hashlib.sha256(file_bytes).hexdigest()
         size_bytes = len(file_bytes)
         object_key = build_object_key(
@@ -64,11 +64,25 @@ class LocalEvidenceStorage:
                 os.remove(temp_name)
             raise
 
-        return object_key, sha256, size_bytes, content_type
+        return {
+            "object_key": object_key,
+            "sha256": sha256,
+            "size_bytes": size_bytes,
+            "content_type": content_type,
+        }
 
     def open_file(self, object_key: str):
         target_path = self._resolve_path(object_key)
         return target_path.open("rb")
+
+    def generate_signed_download_url(
+        self,
+        object_key: str,
+        filename: str,
+        content_type: str | None,
+        ttl_seconds: int,
+    ) -> str:
+        raise NotImplementedError("Signed URLs are not available for local storage.")
 
     def _resolve_path(self, object_key: str) -> Path:
         object_path = Path(object_key)
@@ -79,10 +93,11 @@ class LocalEvidenceStorage:
 
 def _sanitize_filename(filename: str) -> str:
     base = Path(filename).name
+    base = base.replace("/", "").replace("\\", "")
     base = base.replace('"', "").replace("'", "")
     base = re.sub(r"[\x00-\x1f\x7f]+", "", base)
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", base).strip("_")
-    return cleaned or "file"
+    return cleaned or "evidence.bin"
 
 
 def build_object_key(
@@ -108,7 +123,7 @@ class GcsEvidenceStorage:
         filename: str,
         file_bytes: bytes,
         content_type: str | None = None,
-    ) -> tuple[str, str, int, str | None]:
+    ) -> dict[str, str | int | None]:
         from google.api_core import exceptions as gcs_exceptions
 
         sha256 = hashlib.sha256(file_bytes).hexdigest()
@@ -132,7 +147,12 @@ class GcsEvidenceStorage:
         except gcs_exceptions.GoogleAPIError as exc:
             raise EvidenceStorageError("Failed to store evidence in GCS") from exc
 
-        return object_key, sha256, size_bytes, content_type
+        return {
+            "object_key": object_key,
+            "sha256": sha256,
+            "size_bytes": size_bytes,
+            "content_type": content_type,
+        }
 
     def generate_signed_download_url(
         self,
