@@ -150,7 +150,7 @@ async def upload_evidence_file(
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     try:
-        object_key, sha256, size_bytes, content_type = storage.store_file(
+        stored = storage.store_file(
             organisation_id,
             evidence.id,
             filename,
@@ -165,11 +165,11 @@ async def upload_evidence_file(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     evidence.storage_backend = storage.backend
-    evidence.object_key = object_key
+    evidence.object_key = stored["object_key"]
     evidence.original_filename = filename
-    evidence.sha256 = sha256
-    evidence.size_bytes = size_bytes
-    evidence.content_type = content_type
+    evidence.sha256 = stored["sha256"]
+    evidence.size_bytes = stored["size_bytes"]
+    evidence.content_type = stored["content_type"]
     evidence.uploaded_at = datetime.now(timezone.utc)
 
     emit_audit_event(
@@ -181,11 +181,10 @@ async def upload_evidence_file(
         entity_type="evidence_item",
         entity_id=evidence.id,
         metadata={
-            "sha256": sha256,
-            "filename": filename,
-            "size_bytes": size_bytes,
+            "sha256": stored["sha256"],
+            "original_filename": filename,
+            "size_bytes": stored["size_bytes"],
             "backend": storage.backend,
-            "object_key": object_key,
         },
     )
 
@@ -231,8 +230,7 @@ def download_evidence_file(
             status_code=409, detail="Evidence storage backend unsupported"
         )
 
-    try:
-        storage = LocalEvidenceStorage()
+    storage = LocalEvidenceStorage()
     try:
         file_handle = storage.open_file(evidence.object_key)
     except FileNotFoundError as exc:
@@ -302,7 +300,7 @@ def create_evidence_download_url(
         )
     if evidence.storage_backend != "gcs":
         raise HTTPException(
-            status_code=409, detail="Evidence storage backend unsupported"
+            status_code=409, detail="Evidence stored locally; use /download."
         )
 
     try:
@@ -311,7 +309,7 @@ def create_evidence_download_url(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if storage.backend != "gcs":
         raise HTTPException(
-            status_code=409, detail="Evidence storage backend unsupported"
+            status_code=409, detail="Evidence stored locally; use /download."
         )
 
     ttl_seconds = get_gcs_signed_url_ttl_seconds()
