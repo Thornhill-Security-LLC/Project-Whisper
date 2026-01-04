@@ -30,11 +30,14 @@ jobs:
       - name: Compile backend
         run: python -m compileall app
         working-directory: backend
+      - name: Backend import smoke
+        run: PYTHONPATH=. python -c "from app.main import app; print('import ok')"
+        working-directory: backend
       - name: Ruff
         run: ruff check .
         working-directory: backend
       - name: Pytest
-        run: PYTHONPATH=. pytest
+        run: PYTHONPATH=. pytest -q
         working-directory: backend
 
   backend-db:
@@ -71,8 +74,11 @@ jobs:
       - name: Run migrations
         run: alembic -c alembic.ini upgrade head
         working-directory: backend
+      - name: Compile backend
+        run: python -m compileall app
+        working-directory: backend
       - name: Pytest (DB)
-        run: PYTHONPATH=. RUN_DB_TESTS=1 pytest
+        run: PYTHONPATH=. RUN_DB_TESTS=1 pytest -q
         working-directory: backend
 
   frontend:
