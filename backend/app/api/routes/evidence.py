@@ -16,7 +16,11 @@ from app.core.actor import get_actor, require_actor_user
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models import EvidenceItem, Organisation
 from app.db.session import get_db
-from app.schemas.evidence import EvidenceCreate, EvidenceDownloadUrl, EvidenceOut
+from app.schemas.evidence import (
+    EvidenceCreate,
+    EvidenceDownloadUrlOut,
+    EvidenceOut,
+)
 from app.services.audit import emit_audit_event
 from app.services.evidence_storage import (
     EvidenceStorageCollision,
@@ -278,7 +282,7 @@ def download_evidence_file(
 
 @router.get(
     "/organisations/{organisation_id}/evidence/{evidence_id}/download-url",
-    response_model=EvidenceDownloadUrl,
+    response_model=EvidenceDownloadUrlOut,
 )
 def create_evidence_download_url(
     organisation_id: UUID,
@@ -286,7 +290,7 @@ def create_evidence_download_url(
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
     actor: dict[str, UUID | str | None] = Depends(get_actor),
-) -> EvidenceDownloadUrl:
+) -> EvidenceDownloadUrlOut:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
     actor_user = require_actor_user(
         db, actor["actor_user_id"], organisation_id
@@ -341,7 +345,7 @@ def create_evidence_download_url(
     except IntegrityError:
         db.rollback()
 
-    return EvidenceDownloadUrl(url=url, expires_in=ttl_seconds)
+    return EvidenceDownloadUrlOut(url=url, expires_in=ttl_seconds)
 
 
 def _should_emit_download_audit() -> bool:
