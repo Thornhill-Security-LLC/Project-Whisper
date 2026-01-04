@@ -30,6 +30,8 @@ cd backend
 uvicorn app.main:app --reload --port 8000
 ```
 
+If the backend does not start, check `docker compose logs backend` for missing dependencies.
+
 Verify the backend health checks:
 
 ```bash
@@ -149,6 +151,8 @@ curl -X POST "http://localhost:8000/api/organisations/$ORG_ID/evidence/upload" \
   -F "title=Security Policy" \
   -F "file=@./README.md"
 ```
+
+Evidence upload uses `multipart/form-data` and requires `python-multipart` (included in backend requirements).
 
 Download the evidence file:
 
