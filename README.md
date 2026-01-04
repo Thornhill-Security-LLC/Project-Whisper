@@ -193,6 +193,17 @@ curl "http://localhost:8000/api/organisations/$ORG_ID/evidence/<EVIDENCE_ID>/dow
   -H "X-Actor-User-Id: $ADMIN_ID"
 ```
 
+Upload evidence to GCS using the same upload endpoint:
+
+```bash
+curl -X POST "http://localhost:8000/api/organisations/$ORG_ID/evidence/upload" \
+  -H "X-Organisation-Id: $ORG_ID" \
+  -H "X-Actor-User-Id: $ADMIN_ID" \
+  -F "evidence_type=policy" \
+  -F "title=Security Policy" \
+  -F "file=@./README.md"
+```
+
 Link evidence to a control:
 
 ```bash
