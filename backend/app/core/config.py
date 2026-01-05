@@ -34,3 +34,20 @@ def get_gcs_signed_url_ttl_seconds() -> int:
 
 def get_gcp_project_id() -> str | None:
     return os.getenv("GCP_PROJECT_ID")
+
+
+def get_auth_mode() -> str:
+    return os.getenv("AUTH_MODE", "dev").lower()
+
+
+def get_oidc_issuer_url() -> str | None:
+    return os.getenv("OIDC_ISSUER_URL")
+
+
+def get_oidc_audience() -> str | None:
+    return os.getenv("OIDC_AUDIENCE")
+
+
+def get_oidc_jwks_cache_seconds() -> int:
+    value = os.getenv("OIDC_JWKS_CACHE_SECONDS", "3600")
+    return int(value)
