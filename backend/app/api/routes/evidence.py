@@ -12,9 +12,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_gcs_signed_url_ttl_seconds
-from app.core.auth import get_actor, require_actor_user
+from app.core.auth import get_actor
+from app.core.authorization import (
+    ORG_MANAGE_EVIDENCE,
+    ORG_READ,
+    require_permission,
+)
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
-from app.db.models import EvidenceItem, Organisation
+from app.db.models import EvidenceItem, Organisation, UserAccount
 from app.db.session import get_db
 from app.schemas.evidence import (
     EvidenceCreate,
@@ -42,16 +47,13 @@ def create_evidence_item(
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
     actor: dict[str, UUID | str | None] = Depends(get_actor),
+    actor_user: UserAccount = Depends(require_permission(ORG_MANAGE_EVIDENCE)),
 ) -> EvidenceOut:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
     organisation = db.get(Organisation, organisation_id)
     if not organisation:
         raise HTTPException(status_code=404, detail="Organisation not found")
-
-    actor_user = require_actor_user(
-        db, actor["actor_user_id"], organisation_id
-    )
 
     evidence = EvidenceItem(
         organisation_id=organisation_id,
@@ -95,6 +97,7 @@ def list_evidence_items(
     organisation_id: UUID,
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
 ) -> list[EvidenceOut]:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
@@ -122,16 +125,13 @@ async def upload_evidence_file(
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
     actor: dict[str, UUID | str | None] = Depends(get_actor),
+    actor_user: UserAccount = Depends(require_permission(ORG_MANAGE_EVIDENCE)),
 ) -> EvidenceOut:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
     organisation = db.get(Organisation, organisation_id)
     if not organisation:
         raise HTTPException(status_code=404, detail="Organisation not found")
-
-    actor_user = require_actor_user(
-        db, actor["actor_user_id"], organisation_id
-    )
 
     filename = file.filename or "upload.bin"
     evidence_title = title or filename
@@ -212,11 +212,9 @@ def download_evidence_file(
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
     actor: dict[str, UUID | str | None] = Depends(get_actor),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
 ) -> StreamingResponse:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
-    actor_user = require_actor_user(
-        db, actor["actor_user_id"], organisation_id
-    )
 
     evidence = db.get(EvidenceItem, evidence_id)
     if evidence is None or evidence.organisation_id != organisation_id:
@@ -290,11 +288,9 @@ def create_evidence_download_url(
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
     actor: dict[str, UUID | str | None] = Depends(get_actor),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
 ) -> EvidenceDownloadUrlOut:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
-    actor_user = require_actor_user(
-        db, actor["actor_user_id"], organisation_id
-    )
 
     evidence = db.get(EvidenceItem, evidence_id)
     if evidence is None or evidence.organisation_id != organisation_id:
