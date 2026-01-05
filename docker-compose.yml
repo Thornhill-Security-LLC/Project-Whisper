@@ -28,5 +28,21 @@ services:
     volumes:
       - ./backend/.evidence_data:/app/.evidence_data
 
+  backend-test:
+    image: python:3.11-slim
+    working_dir: /app
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql+psycopg://whisper:whisper_dev_password@postgres:5432/whisper
+      PYTHONPATH: /app
+      RUN_DB_TESTS: "1"
+    volumes:
+      - ./backend:/app
+    command: >-
+      bash -lc "pip install -r requirements.txt -r requirements-dev.txt &&
+      alembic -c alembic.ini upgrade head &&
+      pytest -q"
+
 volumes:
   postgres_data:
