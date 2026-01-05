@@ -35,6 +35,7 @@ def test_control_evidence_link_emits_audit_events() -> None:
                 organisation_id=organisation.id,
                 email="control-owner@example.com",
                 display_name="Control Owner",
+                role="org_admin",
             )
             session.add(actor_user)
             session.commit()

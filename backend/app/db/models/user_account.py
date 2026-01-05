@@ -22,6 +22,12 @@ class UserAccount(Base):
     )
     email: Mapped[str] = mapped_column(String, nullable=False, index=True)
     display_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    role: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        default="org_member",
+        server_default=text("'org_member'"),
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()"), nullable=False
     )

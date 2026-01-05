@@ -20,6 +20,7 @@ response=$(curl -sS -X POST "$BASE_URL/api/bootstrap" \
 
 ORG_ID=$(echo "$response" | jq -r '.organisation.id')
 ADMIN_ID=$(echo "$response" | jq -r '.admin_user.id')
+ADMIN_ROLE=$(echo "$response" | jq -r '.admin_user.role')
 
 if [ -z "$ORG_ID" ] || [ "$ORG_ID" = "null" ]; then
   echo "Failed to parse organisation id from response:" >&2
@@ -33,12 +34,20 @@ if [ -z "$ADMIN_ID" ] || [ "$ADMIN_ID" = "null" ]; then
   exit 1
 fi
 
+if [ -z "$ADMIN_ROLE" ] || [ "$ADMIN_ROLE" = "null" ]; then
+  echo "Failed to parse admin user role from response:" >&2
+  echo "$response" >&2
+  exit 1
+fi
+
 cat <<EOF_IDS > "$DEV_ENV_FILE"
 ORG_ID=$ORG_ID
 ADMIN_ID=$ADMIN_ID
+ADMIN_ROLE=$ADMIN_ROLE
 EOF_IDS
 
 echo "ORG_ID=$ORG_ID"
 echo "ADMIN_ID=$ADMIN_ID"
+echo "ADMIN_ROLE=$ADMIN_ROLE"
 echo "Saved IDs to $DEV_ENV_FILE"
 echo "Next: run 'make upload' to attach sample evidence."

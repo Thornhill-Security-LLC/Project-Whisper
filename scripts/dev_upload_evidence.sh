@@ -28,6 +28,10 @@ if [ -z "${ORG_ID:-}" ] || [ -z "${ADMIN_ID:-}" ]; then
   exit 1
 fi
 
+if [ -n "${ADMIN_ROLE:-}" ]; then
+  echo "Using admin role: $ADMIN_ROLE"
+fi
+
 response=$(curl -sS -X POST "$BASE_URL/api/organisations/$ORG_ID/evidence/upload" \
   -H "X-Organisation-Id: $ORG_ID" \
   -H "X-Actor-User-Id: $ADMIN_ID" \
