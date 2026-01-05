@@ -7,7 +7,8 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_actor, require_actor_user
+from app.core.auth import get_actor
+from app.core.authorization import ORG_MANAGE_RISKS, ORG_READ, require_permission
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models import Organisation, Risk, RiskVersion, UserAccount
 from app.db.session import get_db
@@ -72,6 +73,7 @@ def create_risk(
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
     actor: dict[str, UUID | str | None] = Depends(get_actor),
+    actor_user: UserAccount = Depends(require_permission(ORG_MANAGE_RISKS)),
 ) -> RiskOut:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
@@ -79,9 +81,6 @@ def create_risk(
     if not organisation:
         raise HTTPException(status_code=404, detail="Organisation not found")
 
-    actor_user = require_actor_user(
-        db, actor["actor_user_id"], organisation_id
-    )
     if payload.owner_user_id is not None:
         _require_owner_user(db, organisation_id, payload.owner_user_id)
 
@@ -143,6 +142,7 @@ def list_risks(
     organisation_id: UUID,
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
 ) -> list[RiskOut]:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
@@ -182,6 +182,7 @@ def get_risk(
     risk_id: UUID,
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
 ) -> RiskOut:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
@@ -214,13 +215,11 @@ def create_risk_version(
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
     actor: dict[str, UUID | str | None] = Depends(get_actor),
+    actor_user: UserAccount = Depends(require_permission(ORG_MANAGE_RISKS)),
 ) -> RiskOut:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
     risk = _require_risk_for_org(db, organisation_id, risk_id)
-    actor_user = require_actor_user(
-        db, actor["actor_user_id"], organisation_id
-    )
     if payload.owner_user_id is not None:
         _require_owner_user(db, organisation_id, payload.owner_user_id)
 

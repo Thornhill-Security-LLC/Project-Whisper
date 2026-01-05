@@ -40,6 +40,7 @@ def bootstrap(
                 organisation_id=organisation.id,
                 email=payload.admin_email,
                 display_name=payload.admin_display_name,
+                role="org_admin",
             )
             db.add(admin_user)
             db.flush()

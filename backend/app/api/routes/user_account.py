@@ -5,7 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_actor, require_actor_user
+from app.core.auth import get_actor
+from app.core.authorization import ORG_MANAGE_USERS, ORG_READ, require_permission
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models import Organisation, UserAccount
 from app.db.session import get_db
@@ -23,6 +24,7 @@ def list_user_accounts(
     organisation_id: UUID,
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
 ) -> list[UserAccount]:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
@@ -46,6 +48,7 @@ def create_user_account(
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
     actor: dict[str, UUID | str | None] = Depends(get_actor),
+    actor_user: UserAccount = Depends(require_permission(ORG_MANAGE_USERS)),
 ) -> UserAccount:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 
@@ -53,9 +56,6 @@ def create_user_account(
     if not organisation:
         raise HTTPException(status_code=404, detail="Organisation not found")
 
-    actor_user = require_actor_user(
-        db, actor["actor_user_id"], organisation_id
-    )
     metadata = {"email": payload.email, "display_name": payload.display_name}
 
     if actor.get("actor_email") and "actor_email" not in metadata:
@@ -65,6 +65,7 @@ def create_user_account(
         organisation_id=organisation_id,
         email=payload.email,
         display_name=payload.display_name,
+        role=payload.role or "org_member",
     )
     db.add(user_account)
     db.flush()
