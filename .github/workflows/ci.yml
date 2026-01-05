@@ -83,6 +83,15 @@ jobs:
 
   frontend:
     name: frontend
+    if: >-
+      ${{
+        hashFiles('frontend/package.json') != ''
+        && (
+          hashFiles('frontend/package-lock.json') != ''
+          || hashFiles('frontend/yarn.lock') != ''
+          || hashFiles('frontend/pnpm-lock.yaml') != ''
+        )
+      }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

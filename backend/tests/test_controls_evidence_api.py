@@ -40,22 +40,24 @@ def test_control_evidence_link_emits_audit_events() -> None:
             session.add(actor_user)
             session.commit()
             session.refresh(actor_user)
+            organisation_id = organisation.id
+            actor_user_id = actor_user.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     control_response = client.post(
-        f"/api/organisations/{organisation.id}/controls",
+        f"/api/organisations/{organisation_id}/controls",
         json={
             "framework": "SOC2",
             "control_code": "CC6.1",
             "title": "Logical access",
             "description": "Access controls are enforced",
             "status": "Implemented",
-            "owner_user_id": str(actor_user.id),
+            "owner_user_id": str(actor_user_id),
         },
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 
@@ -67,7 +69,7 @@ def test_control_evidence_link_emits_audit_events() -> None:
     control_id = UUID(control_payload["control_id"])
 
     evidence_response = client.post(
-        f"/api/organisations/{organisation.id}/evidence",
+        f"/api/organisations/{organisation_id}/evidence",
         json={
             "title": "Access policy",
             "description": "Policy document",
@@ -76,8 +78,8 @@ def test_control_evidence_link_emits_audit_events() -> None:
             "external_uri": "https://example.com/policy",
         },
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 
@@ -89,11 +91,11 @@ def test_control_evidence_link_emits_audit_events() -> None:
     evidence_id = UUID(evidence_payload["id"])
 
     link_response = client.post(
-        f"/api/organisations/{organisation.id}/controls/{control_id}/evidence",
+        f"/api/organisations/{organisation_id}/controls/{control_id}/evidence",
         json={"evidence_item_id": str(evidence_id)},
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 

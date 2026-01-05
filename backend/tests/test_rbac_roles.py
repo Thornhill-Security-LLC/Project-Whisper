@@ -31,15 +31,17 @@ def test_org_admin_can_create_users() -> None:
             session.add(admin_user)
             session.commit()
             session.refresh(admin_user)
+            organisation_id = organisation.id
+            admin_user_id = admin_user.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.post(
-        f"/api/organisations/{organisation.id}/users",
+        f"/api/organisations/{organisation_id}/users",
         json={"email": "newuser@example.com", "display_name": "New User"},
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(admin_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(admin_user_id),
         },
     )
 
@@ -74,15 +76,17 @@ def test_org_member_cannot_create_users() -> None:
             session.add(member_user)
             session.commit()
             session.refresh(member_user)
+            organisation_id = organisation.id
+            member_user_id = member_user.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.post(
-        f"/api/organisations/{organisation.id}/users",
+        f"/api/organisations/{organisation_id}/users",
         json={"email": "blocked@example.com", "display_name": "Blocked"},
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(member_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(member_user_id),
         },
     )
 
@@ -121,19 +125,22 @@ def test_auditor_cannot_upload_evidence_but_can_read() -> None:
             session.commit()
             session.refresh(admin_user)
             session.refresh(auditor_user)
+            organisation_id = organisation.id
+            admin_user_id = admin_user.id
+            auditor_user_id = auditor_user.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     create_response = client.post(
-        f"/api/organisations/{organisation.id}/evidence",
+        f"/api/organisations/{organisation_id}/evidence",
         json={
             "title": "Read only evidence",
             "description": "Seed evidence",
             "evidence_type": "policy",
         },
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(admin_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(admin_user_id),
         },
     )
 
@@ -147,15 +154,15 @@ def test_auditor_cannot_upload_evidence_but_can_read() -> None:
         os.environ["EVIDENCE_LOCAL_ROOT"] = temp_dir
         try:
             upload_response = client.post(
-                f"/api/organisations/{organisation.id}/evidence/upload",
+                f"/api/organisations/{organisation_id}/evidence/upload",
                 data={
                     "evidence_type": "policy",
                     "title": "Auditor Upload",
                 },
                 files={"file": ("audit.txt", b"audit", "text/plain")},
                 headers={
-                    "X-Organisation-Id": str(organisation.id),
-                    "X-Actor-User-Id": str(auditor_user.id),
+                    "X-Organisation-Id": str(organisation_id),
+                    "X-Actor-User-Id": str(auditor_user_id),
                 },
             )
         finally:
@@ -170,10 +177,10 @@ def test_auditor_cannot_upload_evidence_but_can_read() -> None:
     assert upload_response.status_code == 403
 
     read_response = client.get(
-        f"/api/organisations/{organisation.id}/evidence",
+        f"/api/organisations/{organisation_id}/evidence",
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(auditor_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(auditor_user_id),
         },
     )
 
