@@ -139,7 +139,10 @@ curl http://localhost:8000/api/auth/whoami \
 ```
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 9b1b949fbb4ef0bdadae427410384dd37efce7dc
 ## Org roles and permissions
 
 Project Whisper uses org-scoped RBAC roles on `user_account.role`:
@@ -162,7 +165,10 @@ Permissions map to the following API action groups:
 **Migration note:** existing users are defaulted to `org_admin` because bootstrap
 origin is not yet detectable. New users default to `org_member` unless specified.
 
+<<<<<<< HEAD
 >>>>>>> origin/main
+=======
+>>>>>>> 9b1b949fbb4ef0bdadae427410384dd37efce7dc
 ## Tenant-scoped reads + writes (dev scaffolding)
 
 For all `/api/organisations/{organisation_id}/*` endpoints, include a tenant
