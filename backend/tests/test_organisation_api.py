@@ -31,13 +31,14 @@ def test_create_organisation_returns_payload_and_audit_event() -> None:
             session.add(actor_user)
             session.commit()
             session.refresh(actor_user)
+            actor_user_id = actor_user.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.post(
         "/api/organisations",
         json={"name": "Acme Security"},
-        headers={"X-Actor-User-Id": str(actor_user.id)},
+        headers={"X-Actor-User-Id": str(actor_user_id)},
     )
 
     if response.status_code == 500:
@@ -58,7 +59,7 @@ def test_create_organisation_returns_payload_and_audit_event() -> None:
     assert event.action == "organisation.created"
     assert event.entity_type == "organisation"
     assert event.entity_id == UUID(payload["id"])
-    assert event.actor_user_id == actor_user.id
+    assert event.actor_user_id == actor_user_id
     assert event.metadata_ == {"name": "Acme Security"}
 
 
@@ -76,12 +77,14 @@ def test_get_organisation_rejects_cross_org_header() -> None:
             session.commit()
             session.refresh(primary_org)
             session.refresh(other_org)
+            primary_org_id = primary_org.id
+            other_org_id = other_org.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.get(
-        f"/api/organisations/{primary_org.id}",
-        headers={"X-Organisation-Id": str(other_org.id)},
+        f"/api/organisations/{primary_org_id}",
+        headers={"X-Organisation-Id": str(other_org_id)},
     )
 
     if response.status_code == 500:
@@ -105,6 +108,7 @@ def test_create_user_rejects_actor_from_other_org() -> None:
             session.commit()
             session.refresh(target_org)
             session.refresh(actor_org)
+            target_org_id = target_org.id
 
             actor_user = UserAccount(
                 organisation_id=actor_org.id,
@@ -114,15 +118,16 @@ def test_create_user_rejects_actor_from_other_org() -> None:
             session.add(actor_user)
             session.commit()
             session.refresh(actor_user)
+            actor_user_id = actor_user.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.post(
-        f"/api/organisations/{target_org.id}/users",
+        f"/api/organisations/{target_org_id}/users",
         json={"email": "newuser@example.com", "display_name": "New User"},
         headers={
-            "X-Organisation-Id": str(target_org.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(target_org_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 

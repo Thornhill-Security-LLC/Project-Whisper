@@ -8,4 +8,4 @@ pytest
 httpx
 python-multipart
 google-cloud-storage
-PyJWT
+PyJWT>=2.8.0

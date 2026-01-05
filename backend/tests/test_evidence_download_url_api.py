@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timezone
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,7 +11,9 @@ from app.db.session import SessionLocal
 from app.main import app
 
 
-def _create_org_actor_and_evidence(backend: str) -> tuple[Organisation, UserAccount, EvidenceItem]:
+def _create_org_actor_and_evidence(
+    backend: str,
+) -> tuple[UUID, UUID, UUID]:
     with SessionLocal() as session:
         organisation = Organisation(name=f"Evidence Download Org {backend}")
         session.add(organisation)
@@ -41,7 +44,7 @@ def _create_org_actor_and_evidence(backend: str) -> tuple[Organisation, UserAcco
         session.commit()
         session.refresh(evidence)
 
-        return organisation, actor_user, evidence
+        return organisation.id, actor_user.id, evidence.id
 
 
 @pytest.mark.skipif(
@@ -51,7 +54,7 @@ def test_evidence_download_url_uses_gcs_backend(monkeypatch) -> None:
     client = TestClient(app)
 
     try:
-        organisation, actor_user, evidence = _create_org_actor_and_evidence(
+        organisation_id, actor_user_id, evidence_id = _create_org_actor_and_evidence(
             "gcs"
         )
     except Exception:
@@ -82,10 +85,10 @@ def test_evidence_download_url_uses_gcs_backend(monkeypatch) -> None:
     )
 
     response = client.get(
-        f"/api/organisations/{organisation.id}/evidence/{evidence.id}/download-url",
+        f"/api/organisations/{organisation_id}/evidence/{evidence_id}/download-url",
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 
@@ -100,13 +103,13 @@ def test_evidence_download_url_uses_gcs_backend(monkeypatch) -> None:
     with SessionLocal() as session:
         events = session.execute(
             select(AuditEvent).where(
-                AuditEvent.entity_id == evidence.id,
+                AuditEvent.entity_id == evidence_id,
                 AuditEvent.action == "evidence_item.download_url_generated",
             )
         ).scalars().all()
 
     assert events
-    assert all(event.actor_user_id == actor_user.id for event in events)
+    assert all(event.actor_user_id == actor_user_id for event in events)
 
 
 @pytest.mark.skipif(
@@ -116,17 +119,17 @@ def test_evidence_download_url_rejects_local_backend() -> None:
     client = TestClient(app)
 
     try:
-        organisation, actor_user, evidence = _create_org_actor_and_evidence(
+        organisation_id, actor_user_id, evidence_id = _create_org_actor_and_evidence(
             "local"
         )
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.get(
-        f"/api/organisations/{organisation.id}/evidence/{evidence.id}/download-url",
+        f"/api/organisations/{organisation_id}/evidence/{evidence_id}/download-url",
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 
@@ -144,17 +147,17 @@ def test_evidence_download_rejects_gcs_backend() -> None:
     client = TestClient(app)
 
     try:
-        organisation, actor_user, evidence = _create_org_actor_and_evidence(
+        organisation_id, actor_user_id, evidence_id = _create_org_actor_and_evidence(
             "gcs"
         )
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.get(
-        f"/api/organisations/{organisation.id}/evidence/{evidence.id}/download",
+        f"/api/organisations/{organisation_id}/evidence/{evidence_id}/download",
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 

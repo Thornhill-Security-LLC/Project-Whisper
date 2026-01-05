@@ -31,11 +31,13 @@ def test_create_risk_and_version_emits_audit_events() -> None:
             session.add(actor_user)
             session.commit()
             session.refresh(actor_user)
+            organisation_id = organisation.id
+            actor_user_id = actor_user.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.post(
-        f"/api/organisations/{organisation.id}/risks",
+        f"/api/organisations/{organisation_id}/risks",
         json={
             "title": "Credential stuffing",
             "description": "Abuse of reused credentials",
@@ -43,11 +45,11 @@ def test_create_risk_and_version_emits_audit_events() -> None:
             "likelihood": 4,
             "impact": 5,
             "status": "open",
-            "owner_user_id": str(actor_user.id),
+            "owner_user_id": str(actor_user_id),
         },
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 
@@ -58,7 +60,7 @@ def test_create_risk_and_version_emits_audit_events() -> None:
     payload = response.json()
     assert payload["latest_version"] == 1
     assert payload["title"] == "Credential stuffing"
-    assert payload["owner_user_id"] == str(actor_user.id)
+    assert payload["owner_user_id"] == str(actor_user_id)
     risk_id = UUID(payload["risk_id"])
 
     with SessionLocal() as session:
@@ -101,15 +103,18 @@ def test_create_risk_version_increments_version() -> None:
             session.add(actor_user)
             session.commit()
             session.refresh(actor_user)
+            organisation_id = organisation.id
+            actor_user_id = actor_user.id
 
             risk = Risk(organisation_id=organisation.id)
             session.add(risk)
             session.commit()
             session.refresh(risk)
+            risk_id = risk.id
 
             initial_version = RiskVersion(
-                organisation_id=organisation.id,
-                risk_id=risk.id,
+                organisation_id=organisation_id,
+                risk_id=risk_id,
                 version=1,
                 title="Baseline",
                 description=None,
@@ -118,7 +123,7 @@ def test_create_risk_version_increments_version() -> None:
                 impact=3,
                 status="open",
                 owner_user_id=None,
-                created_by_user_id=actor_user.id,
+                created_by_user_id=actor_user_id,
             )
             session.add(initial_version)
             session.commit()
@@ -127,7 +132,7 @@ def test_create_risk_version_increments_version() -> None:
         pytest.skip("Database is unavailable.")
 
     response = client.post(
-        f"/api/organisations/{organisation.id}/risks/{risk.id}/versions",
+        f"/api/organisations/{organisation_id}/risks/{risk_id}/versions",
         json={
             "title": "Updated",
             "description": "Expanded scope",
@@ -135,11 +140,11 @@ def test_create_risk_version_increments_version() -> None:
             "likelihood": 3,
             "impact": 4,
             "status": "review",
-            "owner_user_id": str(actor_user.id),
+            "owner_user_id": str(actor_user_id),
         },
         headers={
-            "X-Organisation-Id": str(organisation.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 
@@ -153,7 +158,7 @@ def test_create_risk_version_increments_version() -> None:
 
     with SessionLocal() as session:
         versions = session.execute(
-            select(RiskVersion).where(RiskVersion.risk_id == risk.id)
+            select(RiskVersion).where(RiskVersion.risk_id == risk_id)
         ).scalars().all()
 
     assert len(versions) == 2
@@ -172,11 +177,12 @@ def test_create_risk_requires_actor_header() -> None:
             session.add(organisation)
             session.commit()
             session.refresh(organisation)
+            organisation_id = organisation.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.post(
-        f"/api/organisations/{organisation.id}/risks",
+        f"/api/organisations/{organisation_id}/risks",
         json={
             "title": "Risk without actor",
             "description": "No actor header",
@@ -185,7 +191,7 @@ def test_create_risk_requires_actor_header() -> None:
             "impact": 3,
             "status": "open",
         },
-        headers={"X-Organisation-Id": str(organisation.id)},
+        headers={"X-Organisation-Id": str(organisation_id)},
     )
 
     if response.status_code == 500:
@@ -209,6 +215,7 @@ def test_create_risk_rejects_actor_from_other_org() -> None:
             session.commit()
             session.refresh(target_org)
             session.refresh(actor_org)
+            target_org_id = target_org.id
 
             actor_user = UserAccount(
                 organisation_id=actor_org.id,
@@ -218,11 +225,12 @@ def test_create_risk_rejects_actor_from_other_org() -> None:
             session.add(actor_user)
             session.commit()
             session.refresh(actor_user)
+            actor_user_id = actor_user.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
     response = client.post(
-        f"/api/organisations/{target_org.id}/risks",
+        f"/api/organisations/{target_org_id}/risks",
         json={
             "title": "Cross-org risk",
             "description": "Actor from another org",
@@ -232,8 +240,8 @@ def test_create_risk_rejects_actor_from_other_org() -> None:
             "status": "open",
         },
         headers={
-            "X-Organisation-Id": str(target_org.id),
-            "X-Actor-User-Id": str(actor_user.id),
+            "X-Organisation-Id": str(target_org_id),
+            "X-Actor-User-Id": str(actor_user_id),
         },
     )
 

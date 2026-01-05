@@ -33,6 +33,8 @@ def test_evidence_file_upload_and_download() -> None:
             session.add(actor_user)
             session.commit()
             session.refresh(actor_user)
+            organisation_id = organisation.id
+            actor_user_id = actor_user.id
     except Exception:
         pytest.skip("Database is unavailable.")
 
@@ -44,15 +46,15 @@ def test_evidence_file_upload_and_download() -> None:
         os.environ["EVIDENCE_LOCAL_ROOT"] = temp_dir
         try:
             response = client.post(
-                f"/api/organisations/{organisation.id}/evidence/upload",
+                f"/api/organisations/{organisation_id}/evidence/upload",
                 data={
                     "evidence_type": "policy",
                     "title": "Security Policy",
                 },
                 files={"file": ("policy.txt", file_bytes, "text/plain")},
                 headers={
-                    "X-Organisation-Id": str(organisation.id),
-                    "X-Actor-User-Id": str(actor_user.id),
+                    "X-Organisation-Id": str(organisation_id),
+                    "X-Actor-User-Id": str(actor_user_id),
                 },
             )
             if response.status_code == 500:
@@ -80,13 +82,13 @@ def test_evidence_file_upload_and_download() -> None:
             assert evidence.content_type == "text/plain"
             assert evidence.uploaded_at is not None
             assert events
-            assert all(event.actor_user_id == actor_user.id for event in events)
+            assert all(event.actor_user_id == actor_user_id for event in events)
 
             download_response = client.get(
-                f"/api/organisations/{organisation.id}/evidence/{evidence_id}/download",
+                f"/api/organisations/{organisation_id}/evidence/{evidence_id}/download",
                 headers={
-                    "X-Organisation-Id": str(organisation.id),
-                    "X-Actor-User-Id": str(actor_user.id),
+                    "X-Organisation-Id": str(organisation_id),
+                    "X-Actor-User-Id": str(actor_user_id),
                 },
             )
 
