@@ -73,7 +73,12 @@ Prints `/health` and `/health/db` JSON responses. Next: bootstrap IDs.
 make bootstrap
 ```
 
-Prints `ORG_ID` and `ADMIN_ID`, and writes them to `.dev_ids.env` for reuse.
+Prints `ORG_ID`, `ADMIN_ID`, and `ADMIN_ROLE`, and writes them to `.dev_ids.env` for reuse.
+To add another user with a specific role, run:
+
+```bash
+scripts/dev_create_user.sh user@example.com "New User" org_member
+```
 
 5) **Upload sample evidence**
 
@@ -133,6 +138,31 @@ curl http://localhost:8000/api/auth/whoami \
   -H "Authorization: Bearer <JWT>"
 ```
 
+<<<<<<< HEAD
+=======
+## Org roles and permissions
+
+Project Whisper uses org-scoped RBAC roles on `user_account.role`:
+
+| Role | Capabilities |
+| --- | --- |
+| `org_owner` | Full access to all org actions. |
+| `org_admin` | Manage users, controls, evidence, risks, and read all. |
+| `org_member` | Manage evidence and risks, read all. |
+| `auditor` | Read-only access. |
+
+Permissions map to the following API action groups:
+
+- `ORG_READ`
+- `ORG_MANAGE_USERS`
+- `ORG_MANAGE_CONTROLS`
+- `ORG_MANAGE_EVIDENCE`
+- `ORG_MANAGE_RISKS`
+
+**Migration note:** existing users are defaulted to `org_admin` because bootstrap
+origin is not yet detectable. New users default to `org_member` unless specified.
+
+>>>>>>> origin/main
 ## Tenant-scoped reads + writes (dev scaffolding)
 
 For all `/api/organisations/{organisation_id}/*` endpoints, include a tenant
@@ -173,7 +203,8 @@ List users in the organisation (requires tenant header):
 
 ```bash
 curl http://localhost:8000/api/organisations/<organisation_id>/users \
-  -H "X-Organisation-Id: <organisation_id>"
+  -H "X-Organisation-Id: <organisation_id>" \
+  -H "X-Actor-User-Id: <actor_user_id>"
 ```
 
 Create a user in that organisation:
@@ -183,7 +214,7 @@ curl -X POST http://localhost:8000/api/organisations/<organisation_id>/users \
   -H "X-Organisation-Id: <organisation_id>" \
   -H "X-Actor-User-Id: <actor_user_id>" \
   -H "Content-Type: application/json" \
-  -d '{"email":"user@example.com","display_name":"Alex"}'
+  -d '{"email":"user@example.com","display_name":"Alex","role":"org_member"}'
 ```
 
 Create a risk:
@@ -200,7 +231,8 @@ List risks:
 
 ```bash
 curl http://localhost:8000/api/organisations/<organisation_id>/risks \
-  -H "X-Organisation-Id: <organisation_id>"
+  -H "X-Organisation-Id: <organisation_id>" \
+  -H "X-Actor-User-Id: <actor_user_id>"
 ```
 
 Create a new risk version:
@@ -317,8 +349,8 @@ curl -X POST http://localhost:8000/api/organisations/<organisation_id>/controls/
   -d '{"evidence_item_id":"<evidence_item_id>"}'
 ```
 
-All write endpoints (other than `/api/bootstrap`) require an `X-Actor-User-Id`
-header that refers to a user in the target organisation.
+All read/write endpoints (other than `/api/bootstrap`) require an
+`X-Actor-User-Id` header that refers to a user in the target organisation.
 
 If the `X-Organisation-Id` header does not match the path organisation ID, the
 API returns `403 Cross-organisation access denied`. If the organisation ID is
