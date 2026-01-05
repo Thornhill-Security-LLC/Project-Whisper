@@ -12,7 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_gcs_signed_url_ttl_seconds
-from app.core.actor import get_actor, require_actor_user
+from app.core.auth import get_actor, require_actor_user
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models import EvidenceItem, Organisation
 from app.db.session import get_db

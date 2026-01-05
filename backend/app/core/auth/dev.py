@@ -4,9 +4,6 @@ import logging
 from uuid import UUID
 
 from fastapi import Header, HTTPException
-from sqlalchemy.orm import Session
-
-from app.db.models import UserAccount
 
 logger = logging.getLogger(__name__)
 
@@ -33,19 +30,9 @@ def get_actor(
             "Using dev actor header", extra={"actor_email": x_actor_email}
         )
 
-    return {"actor_user_id": actor_user_id, "actor_email": x_actor_email}
-
-
-def require_actor_user(
-    db: Session, actor_user_id: UUID, organisation_id: UUID | None = None
-) -> UserAccount:
-    # Use 401 for missing/invalid/unknown actors and 403 for org mismatches.
-    actor_user = db.get(UserAccount, actor_user_id)
-    if actor_user is None:
-        raise HTTPException(status_code=401, detail="Actor user not found")
-    if organisation_id is not None:
-        if actor_user.organisation_id != organisation_id:
-            raise HTTPException(
-                status_code=403, detail="Actor not in organisation"
-            )
-    return actor_user
+    return {
+        "actor_user_id": actor_user_id,
+        "actor_email": x_actor_email,
+        "actor_subject": None,
+        "auth_mode": "dev",
+    }

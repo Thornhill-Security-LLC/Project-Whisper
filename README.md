@@ -93,6 +93,46 @@ make routes
 
 Prints the evidence-related OpenAPI routes so you can explore downloads and links.
 
+## Authentication modes
+
+Project Whisper supports two authentication scaffolding modes via `AUTH_MODE`:
+
+- `dev` (default): use `X-Organisation-Id` plus actor headers for local/dev flows.
+- `oidc`: validate OIDC JWTs and map them to existing `user_account` records.
+
+### Dev mode (`AUTH_MODE=dev`)
+
+Set `AUTH_MODE=dev` (or omit it) and continue using the header-based actor
+scaffolding. Write actions still require `X-Actor-User-Id`.
+
+### OIDC mode (`AUTH_MODE=oidc`)
+
+Set the following environment variables:
+
+```bash
+AUTH_MODE=oidc
+OIDC_ISSUER_URL=https://issuer.example.com
+OIDC_AUDIENCE=api://your-audience
+OIDC_JWKS_CACHE_SECONDS=3600
+```
+
+Requests must include:
+
+- `Authorization: Bearer <JWT>`
+- `X-Organisation-Id: <organisation_id>`
+
+User accounts are **not** auto-provisioned. Users must already exist via
+bootstrap/admin flows or explicit onboarding. Otherwise, requests return:
+`User not provisioned for this organisation`.
+
+Use the diagnostics endpoint to verify identity context:
+
+```bash
+curl http://localhost:8000/api/auth/whoami \
+  -H "X-Organisation-Id: <organisation_id>" \
+  -H "Authorization: Bearer <JWT>"
+```
+
 ## Tenant-scoped reads + writes (dev scaffolding)
 
 For all `/api/organisations/{organisation_id}/*` endpoints, include a tenant
