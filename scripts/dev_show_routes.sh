@@ -9,4 +9,4 @@ curl -sS "$BASE_URL/openapi.json" \
   | jq -r '.paths | keys[]' \
   | grep -E "evidence|download" || true
 
-echo "Next: use /download or /download-url with ORG_ID and ADMIN_ID."
+printf "\nNext: use /download or /download-url with ORG_ID and ADMIN_ID.\n"

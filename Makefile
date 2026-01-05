@@ -44,3 +44,6 @@ bootstrap:
 
 upload:
 	./scripts/dev_upload_evidence.sh
+
+reset:
+	./scripts/dev_reset.sh
