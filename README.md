@@ -124,7 +124,10 @@ Set the following environment variables:
 AUTH_MODE=oidc
 OIDC_ISSUER_URL=https://issuer.example.com
 OIDC_AUDIENCE=api://your-audience
+OIDC_JWKS_URL=https://issuer.example.com/.well-known/jwks.json
+OIDC_CLOCK_SKEW_SECONDS=60
 OIDC_JWKS_CACHE_SECONDS=3600
+OIDC_HTTP_TIMEOUT_SECONDS=5
 ```
 
 Requests must include:
@@ -135,6 +138,10 @@ Requests must include:
 User accounts are **not** auto-provisioned. Users must already exist via
 bootstrap/admin flows or explicit onboarding. Otherwise, requests return:
 `User not provisioned for this organisation`.
+
+`OIDC_JWKS_URL` may be omitted if your issuer supports discovery at
+`/.well-known/openid-configuration`; the backend will use `jwks_uri` from
+the discovery document.
 
 Use the diagnostics endpoint to verify identity context:
 

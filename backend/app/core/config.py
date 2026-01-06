@@ -48,6 +48,20 @@ def get_oidc_audience() -> str | None:
     return os.getenv("OIDC_AUDIENCE")
 
 
+def get_oidc_jwks_url() -> str | None:
+    return os.getenv("OIDC_JWKS_URL")
+
+
 def get_oidc_jwks_cache_seconds() -> int:
     value = os.getenv("OIDC_JWKS_CACHE_SECONDS", "3600")
+    return int(value)
+
+
+def get_oidc_clock_skew_seconds() -> int:
+    value = os.getenv("OIDC_CLOCK_SKEW_SECONDS", "60")
+    return int(value)
+
+
+def get_oidc_http_timeout_seconds() -> int:
+    value = os.getenv("OIDC_HTTP_TIMEOUT_SECONDS", "5")
     return int(value)

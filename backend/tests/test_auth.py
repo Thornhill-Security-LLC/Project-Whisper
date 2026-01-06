@@ -5,7 +5,9 @@ from uuid import uuid4
 import jwt
 from fastapi.testclient import TestClient
 
+from app.core import oidc as oidc_core
 from app.core.auth import oidc
+from app.db.models import UserAccount
 from app.db.session import get_db
 from app.main import app
 
@@ -106,7 +108,12 @@ def test_oidc_mode_rejects_user_not_provisioned(monkeypatch) -> None:
     monkeypatch.setenv("AUTH_MODE", "oidc")
     monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
     monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
-    oidc._JWKS_CACHE.clear()
+    oidc_core._JWKS_CACHE.clear()
+    monkeypatch.setattr(
+        oidc_core,
+        "_ALLOWED_ALGORITHMS",
+        {"HS256"},
+    )
 
     secret = b"test-secret"
     token = _build_hs256_token(
@@ -124,7 +131,7 @@ def test_oidc_mode_rejects_user_not_provisioned(monkeypatch) -> None:
         ]
     }
 
-    monkeypatch.setattr(oidc, "_fetch_jwks", lambda issuer: jwks)
+    monkeypatch.setattr(oidc_core, "fetch_jwks", lambda: jwks)
     monkeypatch.setattr(oidc, "_find_user_account", lambda *args: None)
 
     app.dependency_overrides[get_db] = _override_db
@@ -146,3 +153,63 @@ def test_oidc_mode_rejects_user_not_provisioned(monkeypatch) -> None:
         response.json()["detail"]
         == "User not provisioned for this organisation"
     )
+
+
+def test_oidc_mode_accepts_provisioned_user(monkeypatch) -> None:
+    monkeypatch.setenv("AUTH_MODE", "oidc")
+    monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
+    monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
+    oidc_core._JWKS_CACHE.clear()
+    monkeypatch.setattr(
+        oidc_core,
+        "_ALLOWED_ALGORITHMS",
+        {"HS256"},
+    )
+
+    secret = b"test-secret"
+    token = _build_hs256_token(
+        secret, "https://issuer.example.com", "api://audience"
+    )
+    jwks = {
+        "keys": [
+            {
+                "kty": "oct",
+                "k": _b64url(secret),
+                "kid": "test-key",
+                "alg": "HS256",
+                "use": "sig",
+            }
+        ]
+    }
+
+    actor_user = UserAccount(
+        organisation_id=uuid4(),
+        email="user@example.com",
+        display_name="Test User",
+    )
+    actor_user.id = uuid4()
+
+    monkeypatch.setattr(oidc_core, "fetch_jwks", lambda: jwks)
+    monkeypatch.setattr(oidc, "_find_user_account", lambda *args, **kwargs: actor_user)
+
+    app.dependency_overrides[get_db] = _override_db
+    client = TestClient(app)
+    org_id = str(actor_user.organisation_id)
+
+    response = client.get(
+        "/api/auth/whoami",
+        headers={
+            "X-Organisation-Id": org_id,
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["auth_mode"] == "oidc"
+    assert payload["user_id"] == str(actor_user.id)
+    assert payload["email"] == actor_user.email
+    assert payload["subject"] == "user-subject"
+    assert payload["organisation_id"] == org_id
