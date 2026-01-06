@@ -5,7 +5,8 @@ backend-test:
 	cd backend && pytest
 
 test-docker:
-	docker compose run --rm backend-test
+	sudo docker compose up -d postgres
+	sudo docker compose run --rm backend-test
 
 backend-lint:
 	cd backend && ruff check .
