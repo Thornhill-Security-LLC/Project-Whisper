@@ -5,7 +5,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_actor, require_actor_user
+from app.core.authorization import ORG_READ, require_permission
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
+from app.db.models import UserAccount
 from app.db.models.organisation import Organisation
 from app.db.session import get_db
 from app.schemas.organisation import OrganisationCreate, OrganisationOut
@@ -19,6 +21,7 @@ def get_organisation(
     organisation_id: UUID,
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
 ) -> OrganisationOut:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
 

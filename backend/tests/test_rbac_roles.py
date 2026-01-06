@@ -176,6 +176,45 @@ def test_auditor_cannot_upload_evidence_but_can_read() -> None:
 
     assert upload_response.status_code == 403
 
+    org_response = client.get(
+        f"/api/organisations/{organisation_id}",
+        headers={
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(auditor_user_id),
+        },
+    )
+
+    if org_response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert org_response.status_code == 200
+
+    controls_response = client.get(
+        f"/api/organisations/{organisation_id}/controls",
+        headers={
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(auditor_user_id),
+        },
+    )
+
+    if controls_response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert controls_response.status_code == 200
+
+    risks_response = client.get(
+        f"/api/organisations/{organisation_id}/risks",
+        headers={
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(auditor_user_id),
+        },
+    )
+
+    if risks_response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert risks_response.status_code == 200
+
     read_response = client.get(
         f"/api/organisations/{organisation_id}/evidence",
         headers={
