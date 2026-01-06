@@ -17,6 +17,12 @@ cd Project-Whisper
 docker compose up --build
 ```
 
+## Running tests (recommended)
+
+```bash
+make test-docker
+```
+
 Run the database migrations:
 
 ```bash
