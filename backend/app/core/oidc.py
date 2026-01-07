@@ -7,7 +7,12 @@ from typing import Any
 import httpx
 import jwt
 from fastapi import HTTPException
-from jwt import InvalidTokenError
+from jwt import (
+    ExpiredSignatureError,
+    InvalidAudienceError,
+    InvalidIssuerError,
+    InvalidTokenError,
+)
 
 from app.core.config import (
     get_oidc_audience,
@@ -117,6 +122,12 @@ def verify_jwt(token: str) -> dict[str, Any]:
             options={"require": ["exp", "iss", "aud", "sub"]},
             leeway=clock_skew,
         )
+    except ExpiredSignatureError as exc:
+        raise _invalid_token("Token expired") from exc
+    except InvalidAudienceError as exc:
+        raise _invalid_token("Invalid token audience") from exc
+    except InvalidIssuerError as exc:
+        raise _invalid_token("Invalid token issuer") from exc
     except InvalidTokenError as exc:
         raise _invalid_token("Invalid bearer token") from exc
 
@@ -162,6 +173,7 @@ def _get_signing_key(
                 raise _invalid_token("Invalid bearer token") from exc
 
     raise _invalid_token("Invalid bearer token")
+
 
 def _invalid_token(message: str) -> HTTPException:
     return HTTPException(status_code=401, detail=message)

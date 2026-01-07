@@ -21,8 +21,8 @@ def get_actor(request: Request, db: Session) -> dict[str, UUID | str | None]:
     user = _find_user_account(
         db,
         organisation_id,
-        email=email,
-        subject=subject,
+        email,
+        subject,
     )
     if user is None:
         raise HTTPException(
@@ -73,4 +73,3 @@ def _find_user_account(
             return user
 
     return None
-
