@@ -16,7 +16,12 @@ def _b64url(value: bytes) -> str:
     return base64.urlsafe_b64encode(value).rstrip(b"=").decode("utf-8")
 
 
-def _build_hs256_token(secret: bytes, issuer: str, audience: str) -> str:
+def _build_hs256_token(
+    secret: bytes,
+    issuer: str,
+    audience: str,
+    exp_offset: int = 60,
+) -> str:
     now = int(time.time())
     return jwt.encode(
         {
@@ -25,7 +30,7 @@ def _build_hs256_token(secret: bytes, issuer: str, audience: str) -> str:
             "iss": issuer,
             "aud": audience,
             "nbf": now - 5,
-            "exp": now + 60,
+            "exp": now + exp_offset,
         },
         secret,
         algorithm="HS256",
@@ -67,6 +72,9 @@ def test_oidc_mode_rejects_missing_jwt(monkeypatch) -> None:
     monkeypatch.setenv("AUTH_MODE", "oidc")
     monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
     monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
+    monkeypatch.setenv(
+        "OIDC_JWKS_URL", "https://issuer.example.com/.well-known/jwks.json"
+    )
     app.dependency_overrides[get_db] = _override_db
     client = TestClient(app)
     org_id = str(uuid4())
@@ -86,6 +94,9 @@ def test_oidc_mode_rejects_invalid_jwt(monkeypatch) -> None:
     monkeypatch.setenv("AUTH_MODE", "oidc")
     monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
     monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
+    monkeypatch.setenv(
+        "OIDC_JWKS_URL", "https://issuer.example.com/.well-known/jwks.json"
+    )
     app.dependency_overrides[get_db] = _override_db
     client = TestClient(app)
     org_id = str(uuid4())
@@ -104,10 +115,176 @@ def test_oidc_mode_rejects_invalid_jwt(monkeypatch) -> None:
     assert response.json()["detail"] == "Invalid bearer token"
 
 
+def test_oidc_mode_rejects_invalid_bearer_format(monkeypatch) -> None:
+    monkeypatch.setenv("AUTH_MODE", "oidc")
+    monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
+    monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
+    monkeypatch.setenv(
+        "OIDC_JWKS_URL", "https://issuer.example.com/.well-known/jwks.json"
+    )
+    app.dependency_overrides[get_db] = _override_db
+    client = TestClient(app)
+    org_id = str(uuid4())
+
+    response = client.get(
+        "/api/auth/whoami",
+        headers={
+            "X-Organisation-Id": org_id,
+            "Authorization": "Token abc",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid bearer token"
+
+
+def test_oidc_mode_rejects_wrong_issuer(monkeypatch) -> None:
+    monkeypatch.setenv("AUTH_MODE", "oidc")
+    monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
+    monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
+    monkeypatch.setenv(
+        "OIDC_JWKS_URL", "https://issuer.example.com/.well-known/jwks.json"
+    )
+    oidc_core._JWKS_CACHE.clear()
+    monkeypatch.setattr(oidc_core, "_ALLOWED_ALGORITHMS", {"HS256"})
+
+    secret = b"test-secret"
+    token = _build_hs256_token(
+        secret, "https://wrong.example.com", "api://audience"
+    )
+    jwks = {
+        "keys": [
+            {
+                "kty": "oct",
+                "k": _b64url(secret),
+                "kid": "test-key",
+                "alg": "HS256",
+                "use": "sig",
+            }
+        ]
+    }
+
+    monkeypatch.setattr(oidc_core, "fetch_jwks", lambda: jwks)
+    app.dependency_overrides[get_db] = _override_db
+    client = TestClient(app)
+    org_id = str(uuid4())
+
+    response = client.get(
+        "/api/auth/whoami",
+        headers={
+            "X-Organisation-Id": org_id,
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid bearer token"
+
+
+def test_oidc_mode_rejects_wrong_audience(monkeypatch) -> None:
+    monkeypatch.setenv("AUTH_MODE", "oidc")
+    monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
+    monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
+    monkeypatch.setenv(
+        "OIDC_JWKS_URL", "https://issuer.example.com/.well-known/jwks.json"
+    )
+    oidc_core._JWKS_CACHE.clear()
+    monkeypatch.setattr(oidc_core, "_ALLOWED_ALGORITHMS", {"HS256"})
+
+    secret = b"test-secret"
+    token = _build_hs256_token(
+        secret, "https://issuer.example.com", "api://wrong"
+    )
+    jwks = {
+        "keys": [
+            {
+                "kty": "oct",
+                "k": _b64url(secret),
+                "kid": "test-key",
+                "alg": "HS256",
+                "use": "sig",
+            }
+        ]
+    }
+
+    monkeypatch.setattr(oidc_core, "fetch_jwks", lambda: jwks)
+    app.dependency_overrides[get_db] = _override_db
+    client = TestClient(app)
+    org_id = str(uuid4())
+
+    response = client.get(
+        "/api/auth/whoami",
+        headers={
+            "X-Organisation-Id": org_id,
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid bearer token"
+
+
+def test_oidc_mode_rejects_expired_token(monkeypatch) -> None:
+    monkeypatch.setenv("AUTH_MODE", "oidc")
+    monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
+    monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
+    monkeypatch.setenv(
+        "OIDC_JWKS_URL", "https://issuer.example.com/.well-known/jwks.json"
+    )
+    oidc_core._JWKS_CACHE.clear()
+    monkeypatch.setattr(oidc_core, "_ALLOWED_ALGORITHMS", {"HS256"})
+
+    secret = b"test-secret"
+    token = _build_hs256_token(
+        secret,
+        "https://issuer.example.com",
+        "api://audience",
+        exp_offset=-10,
+    )
+    jwks = {
+        "keys": [
+            {
+                "kty": "oct",
+                "k": _b64url(secret),
+                "kid": "test-key",
+                "alg": "HS256",
+                "use": "sig",
+            }
+        ]
+    }
+
+    monkeypatch.setattr(oidc_core, "fetch_jwks", lambda: jwks)
+    app.dependency_overrides[get_db] = _override_db
+    client = TestClient(app)
+    org_id = str(uuid4())
+
+    response = client.get(
+        "/api/auth/whoami",
+        headers={
+            "X-Organisation-Id": org_id,
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid bearer token"
+
+
 def test_oidc_mode_rejects_user_not_provisioned(monkeypatch) -> None:
     monkeypatch.setenv("AUTH_MODE", "oidc")
     monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
     monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
+    monkeypatch.setenv(
+        "OIDC_JWKS_URL", "https://issuer.example.com/.well-known/jwks.json"
+    )
     oidc_core._JWKS_CACHE.clear()
     monkeypatch.setattr(
         oidc_core,
@@ -159,6 +336,9 @@ def test_oidc_mode_accepts_provisioned_user(monkeypatch) -> None:
     monkeypatch.setenv("AUTH_MODE", "oidc")
     monkeypatch.setenv("OIDC_ISSUER_URL", "https://issuer.example.com")
     monkeypatch.setenv("OIDC_AUDIENCE", "api://audience")
+    monkeypatch.setenv(
+        "OIDC_JWKS_URL", "https://issuer.example.com/.well-known/jwks.json"
+    )
     oidc_core._JWKS_CACHE.clear()
     monkeypatch.setattr(
         oidc_core,

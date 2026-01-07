@@ -3,10 +3,18 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api import api_router
+from app.core.config import get_auth_mode
+from app.core.oidc import validate_oidc_settings
 from app.db.session import get_db
 
 app = FastAPI()
 app.include_router(api_router, prefix="/api")
+
+
+@app.on_event("startup")
+def validate_configuration() -> None:
+    if get_auth_mode() == "oidc":
+        validate_oidc_settings()
 
 
 @app.get("/health")
