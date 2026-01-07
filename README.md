@@ -139,10 +139,6 @@ User accounts are **not** auto-provisioned. Users must already exist via
 bootstrap/admin flows or explicit onboarding. Otherwise, requests return:
 `User not provisioned for this organisation`.
 
-`OIDC_JWKS_URL` may be omitted if your issuer supports discovery at
-`/.well-known/openid-configuration`; the backend will use `jwks_uri` from
-the discovery document.
-
 Use the diagnostics endpoint to verify identity context:
 
 ```bash

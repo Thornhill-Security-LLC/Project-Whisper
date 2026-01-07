@@ -6,6 +6,7 @@ from typing import Any
 
 import httpx
 import jwt
+from fastapi import HTTPException
 from jwt import InvalidTokenError
 
 from app.core.config import (
@@ -28,31 +29,64 @@ _ALLOWED_ALGORITHMS = {
 }
 
 
-def fetch_jwks() -> dict[str, Any]:
+def validate_oidc_settings() -> None:
     issuer = get_oidc_issuer_url()
+    audience = get_oidc_audience()
     jwks_url = get_oidc_jwks_url()
+    if not issuer or not audience or not jwks_url:
+        raise RuntimeError("OIDC configuration missing")
+
+    _validate_positive_setting(
+        get_oidc_http_timeout_seconds(), "OIDC_HTTP_TIMEOUT_SECONDS"
+    )
+    _validate_positive_setting(
+        get_oidc_jwks_cache_seconds(), "OIDC_JWKS_CACHE_SECONDS"
+    )
+    _validate_positive_setting(
+        get_oidc_clock_skew_seconds(), "OIDC_CLOCK_SKEW_SECONDS"
+    )
+
+
+def fetch_jwks() -> dict[str, Any]:
+    jwks_url = get_oidc_jwks_url()
+    if not jwks_url:
+        raise _invalid_token("OIDC configuration missing")
+
+    cache_seconds = get_oidc_jwks_cache_seconds()
+    now = time.time()
+    cache_entry = _JWKS_CACHE.get(jwks_url)
+    if cache_entry and cache_entry["expires_at"] > now:
+        return cache_entry["jwks"]
+
     timeout = get_oidc_http_timeout_seconds()
-    if not issuer:
-        raise ValueError("OIDC issuer is required")
+    try:
+        jwks_response = httpx.get(jwks_url, timeout=timeout)
+        jwks_response.raise_for_status()
+        jwks = jwks_response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise _invalid_token("Invalid bearer token") from exc
 
-    if not jwks_url:
-        config_url = issuer.rstrip("/") + "/.well-known/openid-configuration"
-        config_response = httpx.get(config_url, timeout=timeout)
-        config_response.raise_for_status()
-        jwks_url = config_response.json().get("jwks_uri")
+    _JWKS_CACHE[jwks_url] = {
+        "expires_at": now + cache_seconds,
+        "jwks": jwks,
+    }
+    return jwks
 
-    if not jwks_url:
-        raise ValueError("JWKS URI missing in OIDC configuration")
 
-    jwks_response = httpx.get(jwks_url, timeout=timeout)
-    jwks_response.raise_for_status()
-    return jwks_response.json()
+def verify_bearer_token(auth_header: str | None) -> str:
+    if not auth_header:
+        raise _invalid_token("Missing bearer token")
+    if not auth_header.lower().startswith("bearer "):
+        raise _invalid_token("Invalid bearer token")
+    token = auth_header.split(" ", 1)[1].strip()
+    if not token:
+        raise _invalid_token("Invalid bearer token")
+    return token
 
 
 def verify_jwt(token: str) -> dict[str, Any]:
     issuer = get_oidc_issuer_url()
     audience = get_oidc_audience()
-    jwks_cache_seconds = get_oidc_jwks_cache_seconds()
     clock_skew = get_oidc_clock_skew_seconds()
     if not issuer or not audience:
         raise _invalid_token("OIDC configuration missing")
@@ -66,11 +100,11 @@ def verify_jwt(token: str) -> dict[str, Any]:
     if alg not in _ALLOWED_ALGORITHMS:
         raise _invalid_token("Unsupported token algorithm")
 
+    jwks = fetch_jwks()
     signing_key = _get_signing_key(
-        issuer=issuer,
+        jwks=jwks,
         kid=header.get("kid"),
         alg=alg,
-        cache_seconds=jwks_cache_seconds,
     )
 
     try:
@@ -105,14 +139,22 @@ def _validate_required_claims(claims: dict[str, Any]) -> None:
 
 
 def _get_signing_key(
-    issuer: str, kid: str | None, alg: str, cache_seconds: int
+    jwks: dict[str, Any], kid: str | None, alg: str
 ) -> Any:
     if not kid:
         raise _invalid_token("Invalid bearer token")
 
-    jwks = _get_jwks(issuer, cache_seconds)
+    jwks_algorithms = {
+        key.get("alg") for key in jwks.get("keys", []) if key.get("alg")
+    }
+    if jwks_algorithms and alg not in jwks_algorithms:
+        raise _invalid_token("Unsupported token algorithm")
+
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
+            key_alg = key.get("alg")
+            if key_alg and key_alg != alg:
+                raise _invalid_token("Unsupported token algorithm")
             try:
                 algorithm = jwt.algorithms.get_default_algorithms()[alg]
                 return algorithm.from_jwk(json.dumps(key))
@@ -121,23 +163,10 @@ def _get_signing_key(
 
     raise _invalid_token("Invalid bearer token")
 
-
-def _get_jwks(issuer: str, cache_seconds: int) -> dict[str, Any]:
-    cache_entry = _JWKS_CACHE.get(issuer)
-    now = time.time()
-    if cache_entry and cache_entry["expires_at"] > now:
-        return cache_entry["jwks"]
-
-    try:
-        jwks = fetch_jwks()
-    except (httpx.HTTPError, ValueError) as exc:
-        raise _invalid_token("Invalid bearer token") from exc
-    _JWKS_CACHE[issuer] = {
-        "expires_at": now + cache_seconds,
-        "jwks": jwks,
-    }
-    return jwks
+def _invalid_token(message: str) -> HTTPException:
+    return HTTPException(status_code=401, detail=message)
 
 
-def _invalid_token(message: str) -> InvalidTokenError:
-    return InvalidTokenError(message)
+def _validate_positive_setting(value: int, name: str) -> None:
+    if value <= 0:
+        raise RuntimeError(f"{name} must be > 0")
