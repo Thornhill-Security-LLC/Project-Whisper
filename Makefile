@@ -5,8 +5,17 @@ backend-test:
 	cd backend && pytest
 
 test-docker:
-	sudo docker compose up -d postgres
-	sudo docker compose run --rm backend-test
+	docker compose up -d postgres
+	@echo "Waiting for postgres to be ready..."
+	@for i in 1 2 3 4 5 6 7 8 9 10; do \
+		if docker compose exec -T postgres pg_isready -U whisper -d whisper >/dev/null 2>&1; then \
+			echo "Postgres is ready."; \
+			break; \
+		fi; \
+		echo "Postgres not ready yet (attempt $$i)."; \
+		sleep 3; \
+	done
+	docker compose run --rm backend-test
 
 backend-lint:
 	cd backend && ruff check .

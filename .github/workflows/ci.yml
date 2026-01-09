@@ -18,36 +18,41 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Start postgres
-        run: docker compose up -d postgres
       - name: Run backend tests
-        run: docker compose run --rm backend-test
+        run: make test-docker
 
   frontend:
     name: frontend
-    if: >-
-      ${{
-        hashFiles('frontend/package-lock.json') != ''
-        || hashFiles('frontend/yarn.lock') != ''
-        || hashFiles('frontend/pnpm-lock.yaml') != ''
-      }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Check for frontend lockfile
+        id: lockfile
+        run: |
+          if [ -f frontend/package-lock.json ] || [ -f frontend/yarn.lock ] || [ -f frontend/pnpm-lock.yaml ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Skip frontend CI (no lockfile)
+        if: steps.lockfile.outputs.exists != 'true'
+        run: echo "No frontend lockfile found. Skipping frontend CI."
       - name: Set up Node
+        if: steps.lockfile.outputs.exists == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "lts/*"
           cache: "npm"
       - name: Install dependencies
-        run: |
-          npm install --package-lock-only
-          npm ci
+        if: steps.lockfile.outputs.exists == 'true'
+        run: npm ci
         working-directory: frontend
       - name: Lint
+        if: steps.lockfile.outputs.exists == 'true'
         run: npm run lint
         working-directory: frontend
       - name: Build
+        if: steps.lockfile.outputs.exists == 'true'
         run: npm run build
         working-directory: frontend

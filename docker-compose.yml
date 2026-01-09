@@ -7,6 +7,15 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-whisper}
       POSTGRES_USER: ${POSTGRES_USER:-whisper}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-whisper_dev_password}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-whisper} -d ${POSTGRES_DB:-whisper}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -17,7 +26,8 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -34,14 +44,16 @@ services:
     profiles:
       - test
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://whisper:whisper_dev_password@postgres:5432/whisper
+      AUTH_MODE: ${AUTH_MODE:-dev}
       PYTHONPATH: /app
     volumes:
       - ./backend:/app
     command: >-
-      bash -lc "pip install -q -r requirements.txt pytest && python -m pytest -q"
+      bash -lc "pip install -q -r requirements.txt -r requirements-dev.txt && alembic -c alembic.ini upgrade head && python -m pytest -q"
 
 volumes:
   postgres_data:
