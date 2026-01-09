@@ -12,9 +12,14 @@ from app.db.models import UserAccount
 
 
 def get_actor(request: Request, db: Session) -> dict[str, UUID | str | None]:
-    organisation_id = require_tenant_context(request)
+    organisation_header = request.headers.get("X-Organisation-Id")
     token = verify_bearer_token(request.headers.get("Authorization"))
     claims = verify_jwt(token)
+    if not organisation_header:
+        raise HTTPException(
+            status_code=400, detail="X-Organisation-Id header required"
+        )
+    organisation_id = require_tenant_context(request)
     subject = claims.get("sub")
     email = claims.get("email")
 
