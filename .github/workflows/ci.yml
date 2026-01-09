@@ -27,8 +27,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Check for frontend directory
+        id: frontend_dir
+        run: |
+          if [ -d frontend ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Check for frontend lockfile
         id: lockfile
+        if: steps.frontend_dir.outputs.exists == 'true'
         run: |
           if [ -f frontend/package-lock.json ] || [ -f frontend/yarn.lock ] || [ -f frontend/pnpm-lock.yaml ]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
@@ -36,23 +45,23 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Skip frontend CI (no lockfile)
-        if: steps.lockfile.outputs.exists != 'true'
+        if: steps.frontend_dir.outputs.exists != 'true' || steps.lockfile.outputs.exists != 'true'
         run: echo "No frontend lockfile found. Skipping frontend CI."
       - name: Set up Node
-        if: steps.lockfile.outputs.exists == 'true'
+        if: steps.frontend_dir.outputs.exists == 'true' && steps.lockfile.outputs.exists == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "lts/*"
           cache: "npm"
       - name: Install dependencies
-        if: steps.lockfile.outputs.exists == 'true'
+        if: steps.frontend_dir.outputs.exists == 'true' && steps.lockfile.outputs.exists == 'true'
         run: npm ci
         working-directory: frontend
       - name: Lint
-        if: steps.lockfile.outputs.exists == 'true'
+        if: steps.frontend_dir.outputs.exists == 'true' && steps.lockfile.outputs.exists == 'true'
         run: npm run lint
         working-directory: frontend
       - name: Build
-        if: steps.lockfile.outputs.exists == 'true'
+        if: steps.frontend_dir.outputs.exists == 'true' && steps.lockfile.outputs.exists == 'true'
         run: npm run build
         working-directory: frontend

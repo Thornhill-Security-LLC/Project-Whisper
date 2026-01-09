@@ -1,0 +1,112 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AppLayout } from "./layouts/AppLayout";
+import { AccessPage } from "./pages/AccessPage";
+import { AdminOrgsPage } from "./pages/AdminOrgsPage";
+import { AssetsPage } from "./pages/AssetsPage";
+import { ControlsPage } from "./pages/ControlsPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import { DocumentsPage } from "./pages/DocumentsPage";
+import { IncidentDetailPage } from "./pages/IncidentDetailPage";
+import { IncidentsPage } from "./pages/IncidentsPage";
+import { LoginPage } from "./pages/LoginPage";
+import { RisksPage } from "./pages/RisksPage";
+import { TasksPage } from "./pages/TasksPage";
+import { VendorsPage } from "./pages/VendorsPage";
+
+export function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/dashboard"
+        element={
+          <AppLayout title="Dashboard" subtitle="Security posture overview">
+            <DashboardPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/risks"
+        element={
+          <AppLayout title="Risks" subtitle="Track and triage organisation risks">
+            <RisksPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/controls"
+        element={
+          <AppLayout title="Controls" subtitle="Framework coverage and control readiness">
+            <ControlsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/vendors"
+        element={
+          <AppLayout title="Vendors" subtitle="Third-party risk management">
+            <VendorsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/incidents"
+        element={
+          <AppLayout title="Incidents" subtitle="Security events and response tracking">
+            <IncidentsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/incidents/:id"
+        element={
+          <AppLayout title="Incident detail" subtitle="Response timeline and artifacts">
+            <IncidentDetailPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/assets"
+        element={
+          <AppLayout title="Assets" subtitle="Inventory of critical systems">
+            <AssetsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/documents"
+        element={
+          <AppLayout title="Documents" subtitle="Evidence and policy library">
+            <DocumentsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/tasks"
+        element={
+          <AppLayout title="Tasks" subtitle="Compliance and security workstream">
+            <TasksPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/access"
+        element={
+          <AppLayout title="Access & RBAC Log" subtitle="Audit access changes">
+            <AccessPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/admin/orgs"
+        element={
+          <AppLayout title="Admin Panel" subtitle="Organisation management">
+            <AdminOrgsPage />
+          </AppLayout>
+        }
+      />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
+}

@@ -385,4 +385,26 @@ npm install
 npm run dev
 ```
 
-The UI includes an “API Health” button that calls `http://localhost:8000/health`.
+The frontend runs at `http://localhost:5173` by default and uses `VITE_API_BASE_URL`
+to reach the backend (defaults to `http://localhost:8000`).
+
+## Run backend and frontend together
+
+In one terminal, run the backend:
+
+```bash
+docker compose up --build
+```
+
+In another terminal, run the frontend:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Expected URLs:
+
+- Backend: `http://localhost:8000`
+- Frontend: `http://localhost:5173`
