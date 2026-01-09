@@ -58,7 +58,7 @@ def get_oidc_jwks_cache_seconds() -> int:
 
 
 def get_oidc_clock_skew_seconds() -> int:
-    value = os.getenv("OIDC_CLOCK_SKEW_SECONDS", "60")
+    value = os.getenv("OIDC_CLOCK_SKEW_SECONDS", "0")
     return int(value)
 
 
