@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 import jwt
 from fastapi import HTTPException
-from jwt import InvalidTokenError, PyJWTError
+from jwt import ExpiredSignatureError, InvalidTokenError, PyJWTError
 
 from app.core.config import (
     get_oidc_audience,
@@ -42,7 +42,7 @@ def validate_oidc_settings() -> None:
     _validate_positive_setting(
         get_oidc_jwks_cache_seconds(), "OIDC_JWKS_CACHE_SECONDS"
     )
-    _validate_positive_setting(
+    _validate_non_negative_setting(
         get_oidc_clock_skew_seconds(), "OIDC_CLOCK_SKEW_SECONDS"
     )
 
@@ -125,7 +125,7 @@ def verify_jwt(token: str) -> dict[str, Any]:
             },
             leeway=clock_skew,
         )
-    except PyJWTError as exc:
+    except (ExpiredSignatureError, InvalidTokenError, PyJWTError) as exc:
         raise _invalid_token("Invalid bearer token") from exc
 
     _validate_required_claims(claims)
@@ -179,3 +179,8 @@ def _invalid_token(message: str) -> HTTPException:
 def _validate_positive_setting(value: int, name: str) -> None:
     if value <= 0:
         raise RuntimeError(f"{name} must be > 0")
+
+
+def _validate_non_negative_setting(value: int, name: str) -> None:
+    if value < 0:
+        raise RuntimeError(f"{name} must be >= 0")
