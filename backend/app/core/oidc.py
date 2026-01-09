@@ -7,12 +7,7 @@ from typing import Any
 import httpx
 import jwt
 from fastapi import HTTPException
-from jwt import (
-    ExpiredSignatureError,
-    InvalidAudienceError,
-    InvalidIssuerError,
-    InvalidTokenError,
-)
+from jwt import InvalidTokenError, PyJWTError
 
 from app.core.config import (
     get_oidc_audience,
@@ -80,7 +75,7 @@ def fetch_jwks() -> dict[str, Any]:
 
 def verify_bearer_token(auth_header: str | None) -> str:
     if not auth_header:
-        raise _invalid_token("Missing bearer token")
+        raise _invalid_token("Invalid bearer token")
     if not auth_header.lower().startswith("bearer "):
         raise _invalid_token("Invalid bearer token")
     token = auth_header.split(" ", 1)[1].strip()
@@ -103,7 +98,7 @@ def verify_jwt(token: str) -> dict[str, Any]:
 
     alg = header.get("alg")
     if alg not in _ALLOWED_ALGORITHMS:
-        raise _invalid_token("Unsupported token algorithm")
+        raise _invalid_token("Invalid bearer token")
 
     jwks = fetch_jwks()
     signing_key = _get_signing_key(
@@ -119,16 +114,18 @@ def verify_jwt(token: str) -> dict[str, Any]:
             algorithms=[alg],
             audience=audience,
             issuer=issuer,
-            options={"require": ["exp", "iss", "aud", "sub"]},
+            options={
+                "require": ["exp", "iss", "aud", "sub"],
+                "verify_signature": True,
+                "verify_exp": True,
+                "verify_nbf": True,
+                "verify_iat": False,
+                "verify_aud": True,
+                "verify_iss": True,
+            },
             leeway=clock_skew,
         )
-    except ExpiredSignatureError as exc:
-        raise _invalid_token("Token expired") from exc
-    except InvalidAudienceError as exc:
-        raise _invalid_token("Invalid token audience") from exc
-    except InvalidIssuerError as exc:
-        raise _invalid_token("Invalid token issuer") from exc
-    except InvalidTokenError as exc:
+    except PyJWTError as exc:
         raise _invalid_token("Invalid bearer token") from exc
 
     _validate_required_claims(claims)
@@ -138,15 +135,15 @@ def verify_jwt(token: str) -> dict[str, Any]:
 def _validate_required_claims(claims: dict[str, Any]) -> None:
     subject = claims.get("sub")
     if not subject:
-        raise _invalid_token("Token missing subject")
+        raise _invalid_token("Invalid bearer token")
 
     email = claims.get("email")
     if email is not None and not str(email).strip():
-        raise _invalid_token("Token missing email")
+        raise _invalid_token("Invalid bearer token")
 
     preferred_username = claims.get("preferred_username")
     if preferred_username is not None and not str(preferred_username).strip():
-        raise _invalid_token("Token missing username")
+        raise _invalid_token("Invalid bearer token")
 
 
 def _get_signing_key(
@@ -159,13 +156,13 @@ def _get_signing_key(
         key.get("alg") for key in jwks.get("keys", []) if key.get("alg")
     }
     if jwks_algorithms and alg not in jwks_algorithms:
-        raise _invalid_token("Unsupported token algorithm")
+        raise _invalid_token("Invalid bearer token")
 
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
             key_alg = key.get("alg")
             if key_alg and key_alg != alg:
-                raise _invalid_token("Unsupported token algorithm")
+                raise _invalid_token("Invalid bearer token")
             try:
                 algorithm = jwt.algorithms.get_default_algorithms()[alg]
                 return algorithm.from_jwk(json.dumps(key))
