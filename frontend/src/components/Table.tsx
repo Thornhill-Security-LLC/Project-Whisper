@@ -1,6 +1,8 @@
+import { ReactNode } from "react";
+
 interface TableProps {
   columns: string[];
-  rows: string[][];
+  rows: ReactNode[][];
 }
 
 export function Table({ columns, rows }: TableProps) {
@@ -18,9 +20,9 @@ export function Table({ columns, rows }: TableProps) {
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.map((row, index) => (
-            <tr key={`${row[0]}-${index}`} className="text-slate-600">
+            <tr key={`row-${index}`} className="text-slate-600">
               {row.map((cell, cellIndex) => (
-                <td key={`${cell}-${cellIndex}`} className="px-4 py-3">
+                <td key={`cell-${index}-${cellIndex}`} className="px-4 py-3">
                   {cell}
                 </td>
               ))}

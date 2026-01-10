@@ -8,6 +8,7 @@ const navItems = [
   { label: "Incidents", to: "/incidents" },
   { label: "Assets", to: "/assets" },
   { label: "Documents", to: "/documents" },
+  { label: "Evidence", to: "/evidence" },
   { label: "Tasks", to: "/tasks" },
   { label: "Access & RBAC Log", to: "/access" },
   { label: "Admin Orgs", to: "/admin/orgs" },
