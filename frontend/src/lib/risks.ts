@@ -10,30 +10,27 @@ export interface RiskSummary {
 
 export interface RiskDetail extends RiskSummary {
   description?: string | null;
-  severity?: string | null;
-  likelihood?: string | null;
-  impact?: string | null;
-  owner?: string | null;
-  owner_name?: string | null;
-  owner_email?: string | null;
+  category?: string | null;
+  likelihood?: number | null;
+  impact?: number | null;
+  owner_user_id?: string | null;
 }
 
 export interface RiskVersion {
   version?: string | number | null;
   created_at?: string | null;
-  actor_user_id?: string | null;
-  actor_email?: string | null;
-  summary?: string | null;
+  created_by_user_id?: string | null;
+  title?: string | null;
 }
 
 export interface RiskPayload {
   title: string;
   description?: string | null;
-  severity?: string | null;
-  likelihood?: string | null;
-  impact?: string | null;
+  category?: string | null;
+  likelihood?: number | null;
+  impact?: number | null;
   status?: string | null;
-  summary?: string | null;
+  owner_user_id?: string | null;
 }
 
 export async function listRisks(organisationId: string, session: ApiSession) {
