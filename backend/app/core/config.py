@@ -40,6 +40,21 @@ def get_auth_mode() -> str:
     return os.getenv("AUTH_MODE", "dev").lower()
 
 
+def get_cors_allow_origins() -> list[str]:
+    default_origins = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
+    raw_value = os.getenv("CORS_ALLOW_ORIGINS")
+    if not raw_value:
+        return default_origins
+
+    parsed = [origin.strip() for origin in raw_value.split(",")]
+    return [origin for origin in parsed if origin]
+
+
 def get_oidc_issuer_url() -> str | None:
     return os.getenv("OIDC_ISSUER_URL")
 

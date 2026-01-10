@@ -122,6 +122,10 @@ npm ci
 npm run dev
 ```
 
+If you run the frontend on a different port, set `CORS_ALLOW_ORIGINS` to a
+comma-separated list of allowed origins (for example,
+`CORS_ALLOW_ORIGINS=http://localhost:5173,http://127.0.0.1:5173`).
+
 3) **Bootstrap via the UI**
 
 - Open http://localhost:5173/login
