@@ -104,6 +104,30 @@ make routes
 
 Prints the evidence-related OpenAPI routes so you can explore downloads and links.
 
+## Dev UI bootstrap
+
+Use the UI scaffolding to create a dev organisation and actor session:
+
+1) **Start the backend**
+
+```bash
+docker compose up --build
+```
+
+2) **Start the frontend**
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+3) **Bootstrap via the UI**
+
+- Open http://localhost:5173/login
+- Click **Bootstrap Dev Org** to create an org + admin user
+- You will be redirected to `/dashboard` and can visit `/risks` and `/controls`
+
 ## Authentication modes
 
 Project Whisper supports two authentication scaffolding modes via `AUTH_MODE`:
