@@ -29,6 +29,7 @@ from app.schemas.control import (
     ControlEvidenceLinkOut,
     ControlOut,
     ControlVersionCreate,
+    ControlVersionOut,
 )
 from app.services.audit import emit_audit_event
 
@@ -293,6 +294,37 @@ def create_control_version(
     db.refresh(control)
     db.refresh(control_version)
     return _control_out_from_latest(control, control_version)
+
+
+@router.get(
+    "/organisations/{organisation_id}/controls/{control_id}/versions",
+    response_model=list[ControlVersionOut],
+)
+def list_control_versions(
+    organisation_id: UUID,
+    control_id: UUID,
+    tenant_org_id: UUID = Depends(require_tenant_context),
+    db: Session = Depends(get_db),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
+) -> list[ControlVersionOut]:
+    assert_path_matches_tenant(organisation_id, tenant_org_id)
+
+    _require_control_for_org(db, organisation_id, control_id)
+
+    versions = (
+        db.execute(
+            select(ControlVersion)
+            .where(
+                ControlVersion.organisation_id == organisation_id,
+                ControlVersion.control_id == control_id,
+            )
+            .order_by(ControlVersion.version.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+    return list(versions)
 
 
 @router.post(

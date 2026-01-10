@@ -39,6 +39,23 @@ class ControlOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ControlVersionOut(BaseModel):
+    id: UUID
+    organisation_id: UUID
+    control_id: UUID
+    version: int
+    control_code: str
+    title: str
+    description: str | None
+    framework: str | None
+    status: str
+    owner_user_id: UUID | None
+    created_by_user_id: UUID | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ControlEvidenceLinkCreate(BaseModel):
     evidence_item_id: UUID
 
