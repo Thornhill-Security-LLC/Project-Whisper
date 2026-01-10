@@ -12,7 +12,12 @@ from app.core.authorization import ORG_MANAGE_RISKS, ORG_READ, require_permissio
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
 from app.db.models import Organisation, Risk, RiskVersion, UserAccount
 from app.db.session import get_db
-from app.schemas.risk import RiskCreate, RiskOut, RiskVersionCreate
+from app.schemas.risk import (
+    RiskCreate,
+    RiskOut,
+    RiskVersionCreate,
+    RiskVersionOut,
+)
 from app.services.audit import emit_audit_event
 
 router = APIRouter(tags=["risks"])
@@ -268,3 +273,34 @@ def create_risk_version(
     db.refresh(risk)
     db.refresh(risk_version)
     return _risk_out_from_latest(risk, risk_version)
+
+
+@router.get(
+    "/organisations/{organisation_id}/risks/{risk_id}/versions",
+    response_model=list[RiskVersionOut],
+)
+def list_risk_versions(
+    organisation_id: UUID,
+    risk_id: UUID,
+    tenant_org_id: UUID = Depends(require_tenant_context),
+    db: Session = Depends(get_db),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
+) -> list[RiskVersionOut]:
+    assert_path_matches_tenant(organisation_id, tenant_org_id)
+
+    _require_risk_for_org(db, organisation_id, risk_id)
+
+    versions = (
+        db.execute(
+            select(RiskVersion)
+            .where(
+                RiskVersion.organisation_id == organisation_id,
+                RiskVersion.risk_id == risk_id,
+            )
+            .order_by(RiskVersion.version.desc())
+        )
+        .scalars()
+        .all()
+    )
+
+    return list(versions)
