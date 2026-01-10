@@ -1,13 +1,21 @@
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api import api_router
-from app.core.config import get_auth_mode
+from app.core.config import get_auth_mode, get_cors_allow_origins
 from app.core.oidc import validate_oidc_settings
 from app.db.session import get_db
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_cors_allow_origins(),
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
 app.include_router(api_router, prefix="/api")
 
 
