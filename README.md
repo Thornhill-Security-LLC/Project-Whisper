@@ -133,6 +133,25 @@ comma-separated list of allowed origins (for example,
 - You will be redirected to `/dashboard` and can visit `/risks`, `/controls`, and `/evidence`
 - From `/evidence`, use **Upload evidence** to attach a file. If the storage backend is GCS, downloads use the signed URL flow.
 - Using Risks UI: create risk -> create version -> view history
+- Using Controls UI: create control -> open detail -> create new version -> link evidence -> download linked evidence
+
+### Creating and versioning controls
+
+Once you have a dev session:
+
+1) Visit `/controls`
+2) Click **New control** and enter a title (optionally add description, status, framework mapping)
+3) After creation, you will land on the control detail page
+4) Use **Create new version** to capture updates and refresh the version history
+
+### Linking evidence to controls
+
+After uploading evidence in `/evidence`:
+
+1) Open the control detail page
+2) Click **Link existing evidence**
+3) Search and select an evidence item, then confirm the link
+4) Linked evidence appears in the table with download actions
 
 ## Authentication modes
 

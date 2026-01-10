@@ -3,6 +3,7 @@ import { AppLayout } from "./layouts/AppLayout";
 import { AccessPage } from "./pages/AccessPage";
 import { AdminOrgsPage } from "./pages/AdminOrgsPage";
 import { AssetsPage } from "./pages/AssetsPage";
+import { ControlDetailPage } from "./pages/ControlDetailPage";
 import { ControlsPage } from "./pages/ControlsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
@@ -49,6 +50,14 @@ export function App() {
         element={
           <AppLayout title="Controls" subtitle="Framework coverage and control readiness">
             <ControlsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/controls/:controlId"
+        element={
+          <AppLayout title="Control detail" subtitle="Review control status and evidence">
+            <ControlDetailPage />
           </AppLayout>
         }
       />
