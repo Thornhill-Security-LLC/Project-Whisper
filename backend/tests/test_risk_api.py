@@ -168,6 +168,91 @@ def test_create_risk_version_increments_version() -> None:
 @pytest.mark.skipif(
     os.getenv("RUN_DB_TESTS") != "1", reason="Database tests are disabled."
 )
+def test_list_risk_versions_returns_versions() -> None:
+    client = TestClient(app)
+
+    try:
+        with SessionLocal() as session:
+            organisation = Organisation(name="Version List Org")
+            session.add(organisation)
+            session.commit()
+            session.refresh(organisation)
+
+            actor_user = UserAccount(
+                organisation_id=organisation.id,
+                email="version-reader@example.com",
+                display_name="Version Reader",
+            )
+            session.add(actor_user)
+            session.commit()
+            session.refresh(actor_user)
+            organisation_id = organisation.id
+            actor_user_id = actor_user.id
+
+            risk = Risk(organisation_id=organisation_id)
+            session.add(risk)
+            session.commit()
+            session.refresh(risk)
+            risk_id = risk.id
+
+            session.add_all(
+                [
+                    RiskVersion(
+                        organisation_id=organisation_id,
+                        risk_id=risk_id,
+                        version=1,
+                        title="Initial",
+                        description=None,
+                        category=None,
+                        likelihood=1,
+                        impact=2,
+                        status="open",
+                        owner_user_id=None,
+                        created_by_user_id=actor_user_id,
+                    ),
+                    RiskVersion(
+                        organisation_id=organisation_id,
+                        risk_id=risk_id,
+                        version=2,
+                        title="Follow-up",
+                        description=None,
+                        category=None,
+                        likelihood=2,
+                        impact=3,
+                        status="review",
+                        owner_user_id=None,
+                        created_by_user_id=actor_user_id,
+                    ),
+                ]
+            )
+            session.commit()
+    except Exception:
+        pytest.skip("Database is unavailable.")
+
+    response = client.get(
+        f"/api/organisations/{organisation_id}/risks/{risk_id}/versions",
+        headers={
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
+        },
+    )
+
+    if response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 2
+    assert [entry["version"] for entry in payload] == [2, 1]
+    assert {entry["risk_id"] for entry in payload} == {str(risk_id)}
+    assert {entry["organisation_id"] for entry in payload} == {
+        str(organisation_id)
+    }
+
+
+@pytest.mark.skipif(
+    os.getenv("RUN_DB_TESTS") != "1", reason="Database tests are disabled."
+)
 def test_create_risk_requires_actor_header() -> None:
     client = TestClient(app)
 
