@@ -130,7 +130,8 @@ comma-separated list of allowed origins (for example,
 
 - Open http://localhost:5173/login
 - Click **Bootstrap Dev Org** to create an org + admin user
-- You will be redirected to `/dashboard` and can visit `/risks` and `/controls`
+- You will be redirected to `/dashboard` and can visit `/risks`, `/controls`, and `/evidence`
+- From `/evidence`, use **Upload evidence** to attach a file. If the storage backend is GCS, downloads use the signed URL flow.
 
 ## Authentication modes
 

@@ -35,9 +35,11 @@ export function getApiErrorMessage(error: unknown): string {
   return "Unexpected error";
 }
 
-function buildHeaders(options?: RequestInit, session?: ApiSession): Headers {
+export function buildHeaders(options?: RequestInit, session?: ApiSession): Headers {
   const headers = new Headers(options?.headers ?? undefined);
-  headers.set("Accept", "application/json");
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/json");
+  }
 
   if (session?.orgId) {
     headers.set("X-Organisation-Id", session.orgId);

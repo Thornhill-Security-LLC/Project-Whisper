@@ -6,6 +6,7 @@ import { AssetsPage } from "./pages/AssetsPage";
 import { ControlsPage } from "./pages/ControlsPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DocumentsPage } from "./pages/DocumentsPage";
+import { EvidenceListPage } from "./pages/EvidenceListPage";
 import { IncidentDetailPage } from "./pages/IncidentDetailPage";
 import { IncidentsPage } from "./pages/IncidentsPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -79,6 +80,14 @@ export function App() {
         element={
           <AppLayout title="Documents" subtitle="Evidence and policy library">
             <DocumentsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/evidence"
+        element={
+          <AppLayout title="Evidence" subtitle="Upload and manage audit-ready files">
+            <EvidenceListPage />
           </AppLayout>
         }
       />
