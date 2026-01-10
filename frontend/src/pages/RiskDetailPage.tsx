@@ -20,7 +20,6 @@ type RiskFormState = {
   likelihood: string;
   impact: string;
   status: string;
-  summary: string;
 };
 
 const emptyForm: RiskFormState = {
@@ -30,7 +29,6 @@ const emptyForm: RiskFormState = {
   likelihood: "",
   impact: "",
   status: "",
-  summary: "",
 };
 
 function formatTimestamp(value?: string | null) {
@@ -45,19 +43,16 @@ function formatTimestamp(value?: string | null) {
 }
 
 function buildPayload(form: RiskFormState): RiskPayload {
+  const likelihood = Number(form.likelihood);
+  const impact = Number(form.impact);
   return {
     title: form.title.trim(),
     description: form.description.trim() || null,
-    severity: form.severity.trim() || null,
-    likelihood: form.likelihood.trim() || null,
-    impact: form.impact.trim() || null,
+    category: form.severity.trim() || null,
+    likelihood: Number.isFinite(likelihood) ? likelihood : null,
+    impact: Number.isFinite(impact) ? impact : null,
     status: form.status.trim() || null,
-    summary: form.summary.trim() || null,
   };
-}
-
-function getOwnerLabel(risk: RiskDetail) {
-  return risk.owner_name || risk.owner_email || risk.owner || null;
 }
 
 export function RiskDetailPage() {
@@ -113,10 +108,9 @@ export function RiskDetailPage() {
 
     const fields = [
       { label: "Status", value: risk.status || "-" },
-      { label: "Severity", value: risk.severity || "-" },
-      { label: "Likelihood", value: risk.likelihood || "-" },
-      { label: "Impact", value: risk.impact || "-" },
-      { label: "Owner", value: getOwnerLabel(risk) || "-" },
+      { label: "Severity", value: risk.category || "-" },
+      { label: "Likelihood", value: risk.likelihood?.toString() || "-" },
+      { label: "Impact", value: risk.impact?.toString() || "-" },
       { label: "Created", value: formatTimestamp(risk.created_at) },
       { label: "Updated", value: formatTimestamp(risk.updated_at) },
     ];
@@ -125,12 +119,12 @@ export function RiskDetailPage() {
   }, [risk]);
 
   const versionRows = versions.map((version, index) => {
-    const actor = version.actor_email || version.actor_user_id || "-";
+    const actor = version.created_by_user_id || "-";
     return [
       version.version?.toString() || `${versions.length - index}`,
       formatTimestamp(version.created_at),
       actor,
-      version.summary || "-",
+      version.title || "-",
     ];
   });
 
@@ -142,11 +136,10 @@ export function RiskDetailPage() {
     setFormState({
       title: risk.title ?? "",
       description: risk.description ?? "",
-      severity: risk.severity ?? "",
-      likelihood: risk.likelihood ?? "",
-      impact: risk.impact ?? "",
+      severity: risk.category ?? "",
+      likelihood: risk.likelihood?.toString() ?? "",
+      impact: risk.impact?.toString() ?? "",
       status: risk.status ?? "",
-      summary: "",
     });
     setModalOpen(true);
   };
@@ -180,7 +173,7 @@ export function RiskDetailPage() {
       setModalOpen(false);
       await loadRisk();
     } catch (createErr) {
-      setCreateError(getApiErrorMessage(createErr));
+      setCreateError(`Failed to create version ${getApiErrorMessage(createErr)}`);
     } finally {
       setCreateLoading(false);
     }
@@ -261,7 +254,7 @@ export function RiskDetailPage() {
             </div>
             {versions.length > 0 ? (
               <Table
-                columns={["Version", "Created", "Actor", "Summary"]}
+                columns={["Version", "Created", "Actor", "Title"]}
                 rows={versionRows}
               />
             ) : (
@@ -377,8 +370,8 @@ export function RiskDetailPage() {
             </span>
             <input
               className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("summary", event.target.value)}
-              value={formState.summary}
+              disabled
+              value="Version summaries are not supported yet."
             />
           </label>
         </div>

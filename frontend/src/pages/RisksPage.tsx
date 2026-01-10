@@ -37,12 +37,14 @@ function formatTimestamp(value?: string | null) {
 }
 
 function buildPayload(form: RiskFormState): RiskPayload {
+  const likelihood = Number(form.likelihood);
+  const impact = Number(form.impact);
   return {
     title: form.title.trim(),
     description: form.description.trim() || null,
-    severity: form.severity.trim() || null,
-    likelihood: form.likelihood.trim() || null,
-    impact: form.impact.trim() || null,
+    category: form.severity.trim() || null,
+    likelihood: Number.isFinite(likelihood) ? likelihood : null,
+    impact: Number.isFinite(impact) ? impact : null,
     status: form.status.trim() || null,
   };
 }

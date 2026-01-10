@@ -22,15 +22,7 @@ export class ApiError extends Error {
 
 export function getApiErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 401) {
-      return "Not authenticated";
-    }
-    if (error.status === 403) {
-      return "Insufficient permissions";
-    }
-    if (error.status === 404) {
-      return "Not found";
-    }
+    return `(${error.status}): ${error.message}`;
   }
   return "Unexpected error";
 }
@@ -69,7 +61,16 @@ export async function fetchJson<T>(
   });
 
   if (!response.ok) {
-    throw new ApiError(response.status, response.statusText || "Request failed");
+    let detail = response.statusText || "Request failed";
+    try {
+      const data = (await response.json()) as { detail?: string };
+      if (data?.detail) {
+        detail = data.detail;
+      }
+    } catch {
+      // Ignore parsing errors.
+    }
+    throw new ApiError(response.status, detail);
   }
 
   if (response.status === 204) {
