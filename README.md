@@ -132,6 +132,7 @@ comma-separated list of allowed origins (for example,
 - Click **Bootstrap Dev Org** to create an org + admin user
 - You will be redirected to `/dashboard` and can visit `/risks`, `/controls`, and `/evidence`
 - From `/evidence`, use **Upload evidence** to attach a file. If the storage backend is GCS, downloads use the signed URL flow.
+- Using Risks UI: create risk -> create version -> view history
 
 ## Authentication modes
 

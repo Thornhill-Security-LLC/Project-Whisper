@@ -10,6 +10,7 @@ import { EvidenceListPage } from "./pages/EvidenceListPage";
 import { IncidentDetailPage } from "./pages/IncidentDetailPage";
 import { IncidentsPage } from "./pages/IncidentsPage";
 import { LoginPage } from "./pages/LoginPage";
+import { RiskDetailPage } from "./pages/RiskDetailPage";
 import { RisksPage } from "./pages/RisksPage";
 import { TasksPage } from "./pages/TasksPage";
 import { VendorsPage } from "./pages/VendorsPage";
@@ -32,6 +33,14 @@ export function App() {
         element={
           <AppLayout title="Risks" subtitle="Track and triage organisation risks">
             <RisksPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/risks/:riskId"
+        element={
+          <AppLayout title="Risk detail" subtitle="Review current risk and version history">
+            <RiskDetailPage />
           </AppLayout>
         }
       />
