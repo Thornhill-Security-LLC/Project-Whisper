@@ -33,6 +33,12 @@ def test_openapi_includes_api_routes() -> None:
         "/api/organisations/{organisation_id}/controls/{control_id}/evidence"
         in schema["paths"]
     )
+    assert (
+        "get"
+        in schema["paths"][
+            "/api/organisations/{organisation_id}/controls/{control_id}/evidence"
+        ]
+    )
     assert "/api/organisations/{organisation_id}/evidence" in schema["paths"]
     assert (
         "/api/organisations/{organisation_id}/evidence/upload"

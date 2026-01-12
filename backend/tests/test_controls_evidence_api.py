@@ -137,3 +137,106 @@ def test_control_evidence_link_emits_audit_events() -> None:
     assert "control.version_created" in event_actions
     assert "evidence_item.created" in event_actions
     assert "control.evidence_linked" in event_actions
+
+
+@pytest.mark.skipif(
+    os.getenv("RUN_DB_TESTS") != "1", reason="Database tests are disabled."
+)
+def test_control_evidence_list_returns_linked_evidence() -> None:
+    client = TestClient(app)
+
+    try:
+        with SessionLocal() as session:
+            organisation = Organisation(name="Evidence List Org")
+            session.add(organisation)
+            session.commit()
+            session.refresh(organisation)
+
+            actor_user = UserAccount(
+                organisation_id=organisation.id,
+                email="evidence-list@example.com",
+                display_name="Evidence List",
+                role="org_admin",
+            )
+            session.add(actor_user)
+            session.commit()
+            session.refresh(actor_user)
+            organisation_id = organisation.id
+            actor_user_id = actor_user.id
+    except Exception:
+        pytest.skip("Database is unavailable.")
+
+    control_response = client.post(
+        f"/api/organisations/{organisation_id}/controls",
+        json={
+            "framework": "SOC2",
+            "control_code": "CC6.3",
+            "title": "Asset inventory",
+            "description": "Maintain asset inventory",
+            "status": "Implemented",
+            "owner_user_id": str(actor_user_id),
+        },
+        headers={
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
+        },
+    )
+
+    if control_response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert control_response.status_code == 200
+    control_payload = control_response.json()
+    control_id = control_payload["control_id"]
+
+    evidence_response = client.post(
+        f"/api/organisations/{organisation_id}/evidence",
+        json={
+            "title": "Asset list",
+            "description": "Inventory spreadsheet",
+            "evidence_type": "inventory",
+            "source": "manual",
+            "external_uri": "https://example.com/assets",
+        },
+        headers={
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
+        },
+    )
+
+    if evidence_response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert evidence_response.status_code == 200
+    evidence_payload = evidence_response.json()
+    evidence_id = evidence_payload["id"]
+
+    link_response = client.post(
+        f"/api/organisations/{organisation_id}/controls/{control_id}/evidence",
+        json={"evidence_item_id": evidence_id},
+        headers={
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
+        },
+    )
+
+    if link_response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert link_response.status_code == 200
+
+    list_response = client.get(
+        f"/api/organisations/{organisation_id}/controls/{control_id}/evidence",
+        headers={
+            "X-Organisation-Id": str(organisation_id),
+            "X-Actor-User-Id": str(actor_user_id),
+        },
+    )
+
+    if list_response.status_code == 500:
+        pytest.skip("Database is unavailable.")
+
+    assert list_response.status_code == 200
+    payload = list_response.json()
+    assert isinstance(payload, list)
+    assert evidence_id in {item["id"] for item in payload}
