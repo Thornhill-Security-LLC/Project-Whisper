@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import { Table } from "../components/Table";
-import { useSession } from "../context/SessionContext";
-import { API_BASE_URL, getApiErrorMessage } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
+import { getApiErrorMessage } from "../lib/api";
 import {
   createControlVersion,
   getControl,
@@ -16,6 +16,7 @@ import {
 } from "../lib/controls";
 import {
   createEvidenceDownloadUrl,
+  downloadEvidenceFile,
   listEvidence,
   type EvidenceItem,
 } from "../lib/evidence";
@@ -72,7 +73,7 @@ function buildPayload(form: ControlFormState): ControlPayload {
 export function ControlDetailPage() {
   const navigate = useNavigate();
   const { controlId } = useParams();
-  const { session } = useSession();
+  const { identity, status } = useAuth();
   const [control, setControl] = useState<ControlDetail | null>(null);
   const [versions, setVersions] = useState<ControlVersion[]>([]);
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
@@ -94,14 +95,17 @@ export function ControlDetailPage() {
   const [selectedVersion, setSelectedVersion] = useState<ControlVersion | null>(null);
   const [viewVersionOpen, setViewVersionOpen] = useState(false);
 
+  const organisationId = identity?.organisationId ?? null;
+  const userId = identity?.userId ?? null;
+
   useEffect(() => {
-    if (!session?.orgId || !session.actorUserId) {
-      navigate("/login", { replace: true });
+    if (status === "needs-input") {
+      navigate("/bootstrap", { replace: true });
     }
-  }, [navigate, session?.orgId, session?.actorUserId]);
+  }, [navigate, status]);
 
   const loadControl = useCallback(async () => {
-    if (!session?.orgId || !session.actorUserId || !controlId) {
+    if (!organisationId || !userId || !controlId) {
       return;
     }
 
@@ -109,9 +113,9 @@ export function ControlDetailPage() {
     setError(null);
     try {
       const [controlData, versionData, evidenceData] = await Promise.all([
-        getControl(session.orgId, controlId, session),
-        listControlVersions(session.orgId, controlId, session),
-        listControlEvidence(session.orgId, controlId, session),
+        getControl(organisationId, controlId, identity ?? {}),
+        listControlVersions(organisationId, controlId, identity ?? {}),
+        listControlEvidence(organisationId, controlId, identity ?? {}),
       ]);
       setControl(controlData);
       setVersions(versionData);
@@ -121,31 +125,31 @@ export function ControlDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [controlId, session]);
+  }, [controlId, identity, organisationId, userId]);
 
   useEffect(() => {
-    loadControl();
+    void loadControl();
   }, [loadControl]);
 
   const loadEvidenceOptions = useCallback(async () => {
-    if (!session?.orgId || !session.actorUserId) {
+    if (!organisationId || !userId) {
       return;
     }
     setEvidenceLoading(true);
     setLinkError(null);
     try {
-      const data = await listEvidence(session.orgId, session);
+      const data = await listEvidence(organisationId, identity ?? {});
       setEvidenceOptions(data);
     } catch (fetchError) {
       setLinkError(getApiErrorMessage(fetchError));
     } finally {
       setEvidenceLoading(false);
     }
-  }, [session]);
+  }, [identity, organisationId, userId]);
 
   useEffect(() => {
     if (linkModalOpen) {
-      loadEvidenceOptions();
+      void loadEvidenceOptions();
       setEvidenceSearch("");
       setSelectedEvidenceId("");
     }
@@ -222,8 +226,8 @@ export function ControlDetailPage() {
   };
 
   const handleCreateVersion = async () => {
-    if (!session?.orgId || !session.actorUserId || !controlId) {
-      navigate("/login", { replace: true });
+    if (!organisationId || !userId || !controlId) {
+      navigate("/bootstrap", { replace: true });
       return;
     }
 
@@ -235,7 +239,7 @@ export function ControlDetailPage() {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      await createControlVersion(session.orgId, controlId, buildPayload(formState), session);
+      await createControlVersion(organisationId, controlId, buildPayload(formState), identity ?? {});
       setBanner("New control version created.");
       setCreateModalOpen(false);
       await loadControl();
@@ -248,27 +252,29 @@ export function ControlDetailPage() {
 
   const handleDownload = useCallback(
     async (item: EvidenceItem) => {
-      if (!session?.orgId || !item.id) {
+      if (!organisationId || !item.id) {
         return;
       }
       setDownloadError(null);
       try {
         if (item.storage_backend === "gcs") {
-          const payload = await createEvidenceDownloadUrl(session.orgId, item.id, session);
+          const payload = await createEvidenceDownloadUrl(organisationId, item.id, identity ?? {});
           window.open(payload.url, "_blank", "noopener");
           return;
         }
 
-        const downloadUrl = `${API_BASE_URL}/api/organisations/${session.orgId}/evidence/${item.id}/download`;
-        const opened = window.open(downloadUrl, "_blank", "noopener");
-        if (!opened) {
-          window.location.href = downloadUrl;
-        }
+        const blob = await downloadEvidenceFile(organisationId, item.id, identity ?? {});
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = item.original_filename || item.title || "evidence";
+        link.click();
+        window.URL.revokeObjectURL(url);
       } catch (downloadErr) {
         setDownloadError(getApiErrorMessage(downloadErr));
       }
     },
-    [session]
+    [identity, organisationId]
   );
 
   const filteredEvidenceOptions = useMemo(() => {
@@ -284,8 +290,8 @@ export function ControlDetailPage() {
   }, [evidenceOptions, evidenceSearch]);
 
   const handleLinkEvidence = async () => {
-    if (!session?.orgId || !session.actorUserId || !controlId) {
-      navigate("/login", { replace: true });
+    if (!organisationId || !userId || !controlId) {
+      navigate("/bootstrap", { replace: true });
       return;
     }
 
@@ -297,10 +303,10 @@ export function ControlDetailPage() {
     setLinking(true);
     setLinkError(null);
     try {
-      await linkEvidenceToControl(session.orgId, controlId, selectedEvidenceId, session);
+      await linkEvidenceToControl(organisationId, controlId, selectedEvidenceId, identity ?? {});
       setBanner("Evidence linked to control.");
       setLinkModalOpen(false);
-      const updated = await listControlEvidence(session.orgId, controlId, session);
+      const updated = await listControlEvidence(organisationId, controlId, identity ?? {});
       setEvidence(updated);
     } catch (linkErr) {
       setLinkError(`Failed to link evidence ${getApiErrorMessage(linkErr)}`);
@@ -385,7 +391,7 @@ export function ControlDetailPage() {
           {control.description ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-6">
               <h3 className="text-sm font-semibold text-slate-900">Description</h3>
-              <p className="mt-3 text-sm text-slate-600 whitespace-pre-line">
+              <p className="mt-3 whitespace-pre-line text-sm text-slate-600">
                 {control.description}
               </p>
             </section>
@@ -399,314 +405,206 @@ export function ControlDetailPage() {
               <Table
                 columns={["Version", "Created", "Actor", "Summary"]}
                 rows={versionRows}
-                onRowClick={handleVersionSelect}
+                onRowClick={(index) => handleVersionSelect(index)}
               />
             ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-                No versions have been recorded yet.
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                No versions yet. Create a new version to start tracking history.
               </div>
             )}
           </section>
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">Linked evidence</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Evidence</h3>
             </div>
             {evidence.length > 0 ? (
               <Table
                 columns={[
-                  "File",
+                  "Filename",
                   "Type",
-                  "Created",
-                  "SHA-256",
+                  "Uploaded",
+                  "SHA",
                   "Storage",
-                  "Actions",
+                  "",
                 ]}
                 rows={evidenceRows}
               />
             ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-                No evidence linked to this control yet.
+              <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                No evidence linked yet. Use the button above to link evidence.
               </div>
             )}
           </section>
         </>
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-          Control details are unavailable.
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+          Control not found.
         </div>
       )}
 
       <Modal
-        title="Create a new version"
-        description="Capture the updated fields to add to control version history."
         open={createModalOpen}
-        onClose={() => {
-          if (!createLoading) {
-            setCreateModalOpen(false);
-          }
-        }}
-        actions={
-          <>
-            <button
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600"
-              onClick={() => setCreateModalOpen(false)}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-              disabled={createLoading}
-              onClick={handleCreateVersion}
-              type="button"
-            >
-              {createLoading ? "Saving..." : "Create version"}
-            </button>
-          </>
-        }
+        title="Create new control version"
+        onClose={() => setCreateModalOpen(false)}
       >
-        <div className="space-y-4 text-sm text-slate-600">
+        <div className="space-y-4">
           {createError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
               {createError}
             </div>
           ) : null}
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Title
-            </span>
+            </label>
             <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("title", event.target.value)}
-              required
+              className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formState.title}
+              onChange={(event) => handleFormChange("title", event.target.value)}
             />
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Description
-            </span>
-            <textarea
-              className="min-h-[90px] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("description", event.target.value)}
-              value={formState.description}
-            />
-          </label>
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Status
-              </span>
-              <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-                onChange={(event) => handleFormChange("status", event.target.value)}
-                value={formState.status}
-              />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Framework
-              </span>
-              <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-                onChange={(event) => handleFormChange("framework", event.target.value)}
-                value={formState.framework}
-              />
-            </label>
           </div>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Control code
-            </span>
-            <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("controlCode", event.target.value)}
-              value={formState.controlCode}
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Description
+            </label>
+            <textarea
+              className="mt-2 min-h-[96px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={formState.description}
+              onChange={(event) => handleFormChange("description", event.target.value)}
             />
-          </label>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Status
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.status}
+                onChange={(event) => handleFormChange("status", event.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Framework
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.framework}
+                onChange={(event) => handleFormChange("framework", event.target.value)}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Control code
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.controlCode}
+                onChange={(event) => handleFormChange("controlCode", event.target.value)}
+              />
+            </div>
+          </div>
         </div>
-      </Modal>
-
-      <Modal
-        title="View control version"
-        description="Review the selected control version details."
-        open={viewVersionOpen}
-        onClose={() => setViewVersionOpen(false)}
-        actions={
+        <div className="mt-6 flex items-center justify-end gap-3">
           <button
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600"
-            onClick={() => setViewVersionOpen(false)}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+            onClick={() => setCreateModalOpen(false)}
             type="button"
           >
-            Close
+            Cancel
           </button>
-        }
-      >
-        <div className="space-y-3 text-sm text-slate-600">
-          {selectedVersion ? (
-            <>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Version
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {selectedVersion.version ?? "-"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Created
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {formatTimestamp(selectedVersion.created_at)}
-                  </p>
-                </div>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="text-xs uppercase tracking-wide text-slate-400">
-                  Title
-                </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
-                  {selectedVersion.title || "-"}
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Control code
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {selectedVersion.control_code || "-"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Status
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {selectedVersion.status || "-"}
-                  </p>
-                </div>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Framework
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {selectedVersion.framework || "-"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    Created by
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {selectedVersion.created_by_user_id || "-"}
-                  </p>
-                </div>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="text-xs uppercase tracking-wide text-slate-400">
-                  Description
-                </p>
-                <p className="mt-1 whitespace-pre-line text-sm text-slate-700">
-                  {selectedVersion.description || "-"}
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-              Select a version to review details.
-            </div>
-          )}
+          <button
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            onClick={handleCreateVersion}
+            type="button"
+            disabled={createLoading}
+          >
+            {createLoading ? "Creating..." : "Create version"}
+          </button>
         </div>
       </Modal>
 
-      <Modal
-        title="Link existing evidence"
-        description="Select an evidence item to associate with this control."
-        open={linkModalOpen}
-        onClose={() => {
-          if (!linking) {
-            setLinkModalOpen(false);
-          }
-        }}
-        actions={
-          <>
-            <button
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600"
-              onClick={() => setLinkModalOpen(false)}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-              disabled={linking}
-              onClick={handleLinkEvidence}
-              type="button"
-            >
-              {linking ? "Linking..." : "Link evidence"}
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-4 text-sm text-slate-600">
+      <Modal open={linkModalOpen} title="Link evidence" onClose={() => setLinkModalOpen(false)}>
+        <div className="space-y-4">
           {linkError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
               {linkError}
             </div>
           ) : null}
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Search evidence
-            </span>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Search
+            </label>
             <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => setEvidenceSearch(event.target.value)}
-              placeholder="Search by file name, title, or ID"
+              className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={evidenceSearch}
+              onChange={(event) => setEvidenceSearch(event.target.value)}
+              placeholder="Search evidence"
             />
-          </label>
-          {evidenceLoading ? (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-              Loading evidence...
-            </div>
-          ) : filteredEvidenceOptions.length > 0 ? (
-            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-              {filteredEvidenceOptions.map((item) => {
-                const label =
-                  item.original_filename || item.title || item.description || item.id;
-                return (
-                  <label
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 hover:border-slate-300"
-                    key={item.id}
-                  >
-                    <input
-                      checked={selectedEvidenceId === item.id}
-                      name="evidence"
-                      onChange={() => setSelectedEvidenceId(item.id)}
-                      type="radio"
-                    />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{label}</p>
-                      <p className="text-xs text-slate-500">
-                        {formatTimestamp(item.created_at ?? item.uploaded_at ?? null)} ·{" "}
-                        {formatSha(item.sha256)}
-                      </p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500">
-              No evidence matches this search.
-            </div>
-          )}
+          </div>
+          <div className="space-y-2">
+            {evidenceLoading ? (
+              <p className="text-sm text-slate-500">Loading evidence...</p>
+            ) : filteredEvidenceOptions.length > 0 ? (
+              filteredEvidenceOptions.map((item) => (
+                <label
+                  key={item.id}
+                  className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <span>{item.original_filename || item.title || item.id}</span>
+                  <input
+                    type="radio"
+                    name="evidence"
+                    value={item.id}
+                    checked={selectedEvidenceId === item.id}
+                    onChange={() => setSelectedEvidenceId(item.id)}
+                  />
+                </label>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500">No evidence matches your search.</p>
+            )}
+          </div>
+        </div>
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+            onClick={() => setLinkModalOpen(false)}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            onClick={handleLinkEvidence}
+            type="button"
+            disabled={linking}
+          >
+            {linking ? "Linking..." : "Link evidence"}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        open={viewVersionOpen}
+        title="Version details"
+        onClose={() => setViewVersionOpen(false)}
+      >
+        <div className="space-y-3 text-sm text-slate-600">
+          <p>
+            <span className="font-semibold text-slate-800">Version:</span>{" "}
+            {selectedVersion?.version ?? "-"}
+          </p>
+          <p>
+            <span className="font-semibold text-slate-800">Summary:</span>{" "}
+            {selectedVersion?.summary || selectedVersion?.title || "-"}
+          </p>
+          <p>
+            <span className="font-semibold text-slate-800">Created:</span>{" "}
+            {formatTimestamp(selectedVersion?.created_at ?? null)}
+          </p>
         </div>
       </Modal>
     </div>

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useSession } from "../context/SessionContext";
+import { useAuth } from "../contexts/AuthContext";
 
 interface TopbarProps {
   title: string;
@@ -8,17 +8,17 @@ interface TopbarProps {
 }
 
 const statusStyles: Record<string, string> = {
-  idle: "bg-slate-500",
   checking: "bg-amber-400",
-  valid: "bg-emerald-400",
-  invalid: "bg-rose-400",
+  ready: "bg-emerald-400",
+  "needs-input": "bg-rose-400",
+  error: "bg-rose-400",
 };
 
 export function Topbar({ title, subtitle, actions }: TopbarProps) {
-  const { session, status } = useSession();
-  const authMode = session?.authMode ?? "dev";
-  const orgShort = session?.orgId ? session.orgId.slice(0, 8) : "—";
-  const actorShort = session?.actorUserId ? session.actorUserId.slice(0, 8) : "—";
+  const { identity, status } = useAuth();
+  const authMode = identity?.authMode ?? "dev";
+  const orgShort = identity?.organisationId ? identity.organisationId.slice(0, 8) : "—";
+  const actorShort = identity?.userId ? identity.userId.slice(0, 8) : "—";
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 bg-slate-950 px-6 py-4">

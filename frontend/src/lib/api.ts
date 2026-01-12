@@ -4,19 +4,21 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || DEFAULT_BASE_UR
 
 export type BackendStatus = "unknown" | "ok" | "down";
 
-export interface ApiSession {
-  orgId?: string;
-  actorUserId?: string;
-  actorEmail?: string;
-  authToken?: string;
+export interface ApiAuthContext {
+  organisationId?: string | null;
+  userId?: string | null;
+  email?: string | null;
+  authToken?: string | null;
 }
 
 export class ApiError extends Error {
   status: number;
+  body: unknown;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, body?: unknown) {
     super(message);
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -27,51 +29,98 @@ export function getApiErrorMessage(error: unknown): string {
   return "Unexpected error";
 }
 
-export function buildHeaders(options?: RequestInit, session?: ApiSession): Headers {
+export function buildHeaders(options?: RequestInit, auth?: ApiAuthContext): Headers {
   const headers = new Headers(options?.headers ?? undefined);
   if (!headers.has("Accept")) {
     headers.set("Accept", "application/json");
   }
 
-  if (session?.orgId) {
-    headers.set("X-Organisation-Id", session.orgId);
+  if (auth?.organisationId && !headers.has("X-Organisation-Id")) {
+    headers.set("X-Organisation-Id", auth.organisationId);
   }
-  if (session?.actorUserId) {
-    headers.set("X-Actor-User-Id", session.actorUserId);
+  if (auth?.userId && !headers.has("X-Actor-User-Id")) {
+    headers.set("X-Actor-User-Id", auth.userId);
   }
-  if (session?.actorEmail) {
-    headers.set("X-Actor-Email", session.actorEmail);
+  if (auth?.email && !headers.has("X-Actor-Email")) {
+    headers.set("X-Actor-Email", auth.email);
   }
-  if (session?.authToken) {
-    headers.set("Authorization", `Bearer ${session.authToken}`);
+  if (auth?.authToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${auth.authToken}`);
   }
 
   return headers;
 }
 
-export async function fetchJson<T>(
-  path: string,
-  options: RequestInit = {},
-  session?: ApiSession
-): Promise<T> {
-  const headers = buildHeaders(options, session);
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+export interface ApiRequestOptions extends RequestInit {
+  auth?: ApiAuthContext;
+  json?: unknown;
+}
 
-  if (!response.ok) {
-    let detail = response.statusText || "Request failed";
+async function parseApiError(response: Response): Promise<ApiError> {
+  let message = response.statusText || "Request failed";
+  let body: unknown = undefined;
+
+  const contentType = response.headers.get("Content-Type") ?? "";
+
+  if (contentType.includes("application/json")) {
     try {
-      const data = (await response.json()) as { detail?: string };
-      if (data?.detail) {
-        detail = data.detail;
+      body = await response.clone().json();
+      if (body && typeof body === "object" && "detail" in body) {
+        const detail = (body as { detail?: string }).detail;
+        if (detail) {
+          message = detail;
+        }
       }
     } catch {
       // Ignore parsing errors.
     }
-    throw new ApiError(response.status, detail);
   }
+
+  if (body === undefined) {
+    try {
+      const text = await response.clone().text();
+      if (text) {
+        body = text;
+        message = text;
+      }
+    } catch {
+      // Ignore parsing errors.
+    }
+  }
+
+  return new ApiError(response.status, message, body);
+}
+
+export async function apiFetch(path: string, options: ApiRequestOptions = {}): Promise<Response> {
+  const { auth, json, ...rest } = options;
+  const headers = buildHeaders(rest, auth);
+
+  let body = rest.body;
+  if (json !== undefined) {
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    body = JSON.stringify(json);
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...rest,
+    headers,
+    body,
+  });
+
+  if (!response.ok) {
+    throw await parseApiError(response);
+  }
+
+  return response;
+}
+
+export async function apiJson<T>(
+  path: string,
+  options: ApiRequestOptions = {}
+): Promise<T> {
+  const response = await apiFetch(path, options);
 
   if (response.status === 204) {
     return null as T;
@@ -82,9 +131,11 @@ export async function fetchJson<T>(
 
 export async function fetchHealth(): Promise<BackendStatus> {
   try {
-    await fetchJson("/health");
+    await apiFetch("/health");
     return "ok";
   } catch {
     return "down";
   }
 }
+
+export const fetchJson = apiJson;

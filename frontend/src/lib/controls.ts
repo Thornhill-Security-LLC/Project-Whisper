@@ -1,4 +1,4 @@
-import { ApiSession, fetchJson } from "./api";
+import { ApiAuthContext, apiJson } from "./api";
 import type { EvidenceItem } from "./evidence";
 
 export interface ControlSummary {
@@ -41,80 +41,70 @@ export interface ControlPayload {
   framework?: string | null;
 }
 
-export async function listControls(organisationId: string, session: ApiSession) {
-  return fetchJson<ControlSummary[]>(
-    `/api/organisations/${organisationId}/controls`,
-    {},
-    session
-  );
+export async function listControls(organisationId: string, auth: ApiAuthContext) {
+  return apiJson<ControlSummary[]>(`/api/organisations/${organisationId}/controls`, {
+    auth,
+  });
 }
 
 export async function getControl(
   organisationId: string,
   controlId: string,
-  session: ApiSession
+  auth: ApiAuthContext
 ) {
-  return fetchJson<ControlDetail>(
+  return apiJson<ControlDetail>(
     `/api/organisations/${organisationId}/controls/${controlId}`,
-    {},
-    session
+    { auth }
   );
 }
 
 export async function listControlVersions(
   organisationId: string,
   controlId: string,
-  session: ApiSession
+  auth: ApiAuthContext
 ) {
-  return fetchJson<ControlVersion[]>(
+  return apiJson<ControlVersion[]>(
     `/api/organisations/${organisationId}/controls/${controlId}/versions`,
-    {},
-    session
+    { auth }
   );
 }
 
 export async function createControl(
   organisationId: string,
   payload: ControlPayload,
-  session: ApiSession
+  auth: ApiAuthContext
 ) {
-  return fetchJson<ControlDetail>(
-    `/api/organisations/${organisationId}/controls`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    },
-    session
-  );
+  return apiJson<ControlDetail>(`/api/organisations/${organisationId}/controls`, {
+    method: "POST",
+    auth,
+    json: payload,
+  });
 }
 
 export async function createControlVersion(
   organisationId: string,
   controlId: string,
   payload: ControlPayload,
-  session: ApiSession
+  auth: ApiAuthContext
 ) {
-  return fetchJson<ControlDetail>(
+  return apiJson<ControlDetail>(
     `/api/organisations/${organisationId}/controls/${controlId}/versions`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    },
-    session
+      auth,
+      json: payload,
+    }
   );
 }
 
 export async function listControlEvidence(
   organisationId: string,
   controlId: string,
-  session: ApiSession
+  auth: ApiAuthContext
 ) {
-  return fetchJson<EvidenceItem[]>(
+  return apiJson<EvidenceItem[]>(
     `/api/organisations/${organisationId}/controls/${controlId}/evidence`,
-    {},
-    session
+    { auth }
   );
 }
 
@@ -122,15 +112,11 @@ export async function linkEvidenceToControl(
   organisationId: string,
   controlId: string,
   evidenceId: string,
-  session: ApiSession
+  auth: ApiAuthContext
 ) {
-  return fetchJson(
-    `/api/organisations/${organisationId}/controls/${controlId}/evidence`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ evidence_item_id: evidenceId }),
-    },
-    session
-  );
+  return apiJson(`/api/organisations/${organisationId}/controls/${controlId}/evidence`, {
+    method: "POST",
+    auth,
+    json: { evidence_item_id: evidenceId },
+  });
 }

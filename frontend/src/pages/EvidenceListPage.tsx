@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import { Table } from "../components/Table";
-import { useSession } from "../context/SessionContext";
+import { useAuth } from "../contexts/AuthContext";
 import { ApiError, getApiErrorMessage } from "../lib/api";
 import {
   createEvidenceDownloadUrl,
@@ -44,7 +44,7 @@ function resolveErrorMessage(error: unknown) {
 
 export function EvidenceListPage() {
   const navigate = useNavigate();
-  const { session } = useSession();
+  const { identity, status } = useAuth();
   const [evidence, setEvidence] = useState<EvidenceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,8 +56,11 @@ export function EvidenceListPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
+  const organisationId = identity?.organisationId ?? null;
+  const userId = identity?.userId ?? null;
+
   const refreshEvidence = useCallback(() => {
-    if (!session || !session.orgId) {
+    if (!organisationId || !userId) {
       return;
     }
 
@@ -65,12 +68,7 @@ export function EvidenceListPage() {
     setLoading(true);
     setError(null);
 
-    listEvidence(session.orgId, {
-      orgId: session.orgId,
-      actorUserId: session.actorUserId,
-      actorEmail: session.actorEmail,
-      authToken: session.authToken,
-    })
+    listEvidence(organisationId, identity ?? {})
       .then((data) => {
         if (isActive) {
           setEvidence(data);
@@ -90,13 +88,13 @@ export function EvidenceListPage() {
     return () => {
       isActive = false;
     };
-  }, [session?.orgId, session?.actorUserId, session?.actorEmail, session?.authToken]);
+  }, [identity, organisationId, userId]);
 
   useEffect(() => {
-    if (!session?.orgId) {
-      navigate("/login", { replace: true });
+    if (status === "needs-input") {
+      navigate("/bootstrap", { replace: true });
     }
-  }, [navigate, session?.orgId]);
+  }, [navigate, status]);
 
   useEffect(() => {
     const cleanup = refreshEvidence();
@@ -118,7 +116,7 @@ export function EvidenceListPage() {
 
   const handleUploadSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!session || !session.orgId || !session.actorUserId) {
+    if (!organisationId || !userId) {
       return;
     }
 
@@ -140,16 +138,7 @@ export function EvidenceListPage() {
     }
 
     try {
-      await uploadEvidence(
-        session.orgId,
-        formData,
-        {
-          orgId: session.orgId,
-          actorUserId: session.actorUserId,
-          actorEmail: session.actorEmail,
-          authToken: session.authToken,
-        }
-      );
+      await uploadEvidence(organisationId, formData, identity ?? {});
       setIsUploadOpen(false);
       setUploadFile(null);
       setUploadTitle("");
@@ -164,19 +153,19 @@ export function EvidenceListPage() {
 
   const handleDownload = useCallback(
     async (item: EvidenceItem) => {
-      if (!session || !session.orgId || !item.id) {
+      if (!organisationId || !item.id) {
         return;
       }
 
       setDownloadError(null);
       try {
         if (item.storage_backend === "gcs") {
-          const payload = await createEvidenceDownloadUrl(session.orgId, item.id, session);
+          const payload = await createEvidenceDownloadUrl(organisationId, item.id, identity ?? {});
           window.open(payload.url, "_blank", "noopener");
           return;
         }
 
-        const blob = await downloadEvidenceFile(session.orgId, item.id, session);
+        const blob = await downloadEvidenceFile(organisationId, item.id, identity ?? {});
         const objectUrl = window.URL.createObjectURL(blob);
         const opened = window.open(objectUrl, "_blank", "noopener");
         if (!opened) {
@@ -190,7 +179,11 @@ export function EvidenceListPage() {
           downloadErrorResponse.message.includes("download-url")
         ) {
           try {
-            const payload = await createEvidenceDownloadUrl(session.orgId, item.id, session);
+            const payload = await createEvidenceDownloadUrl(
+              organisationId,
+              item.id,
+              identity ?? {}
+            );
             window.open(payload.url, "_blank", "noopener");
             return;
           } catch (fallbackError) {
@@ -201,7 +194,7 @@ export function EvidenceListPage() {
         setDownloadError(resolveErrorMessage(downloadErrorResponse));
       }
     },
-    [session]
+    [identity, organisationId]
   );
 
   const rows = useMemo(
@@ -262,59 +255,33 @@ export function EvidenceListPage() {
         </div>
       ) : null}
 
-      <section className="space-y-3">
-        {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-            Loading evidence...
-          </div>
-        ) : rows.length > 0 ? (
-          <Table
-            columns={[
-              "File",
-              "Created",
-              "SHA-256",
-              "Content type",
-              "Storage",
-              "Control",
-              "Actions",
-            ]}
-            rows={rows}
-          />
-        ) : (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-            No evidence uploaded yet.
-          </div>
-        )}
-      </section>
+      {loading ? (
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+          Loading evidence...
+        </div>
+      ) : rows.length > 0 ? (
+        <Table
+          columns={[
+            "File name",
+            "Uploaded",
+            "SHA",
+            "Content type",
+            "Storage",
+            "Control",
+            "",
+          ]}
+          rows={rows}
+        />
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+          No evidence files yet. Upload one to get started.
+        </div>
+      )}
 
-      <Modal
-        title="Upload evidence"
-        description="Attach a file for audit-ready storage. Evidence type defaults to policy."
-        onClose={() => setIsUploadOpen(false)}
-        open={isUploadOpen}
-        actions={
-          <>
-            <button
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600"
-              onClick={() => setIsUploadOpen(false)}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-              disabled={isUploading}
-              form="evidence-upload-form"
-              type="submit"
-            >
-              {isUploading ? "Uploading..." : "Upload"}
-            </button>
-          </>
-        }
-      >
-        <form className="space-y-4" id="evidence-upload-form" onSubmit={handleUploadSubmit}>
+      <Modal open={isUploadOpen} title="Upload evidence" onClose={() => setIsUploadOpen(false)}>
+        <form className="space-y-4" onSubmit={handleUploadSubmit}>
           {uploadError ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
               {uploadError}
             </div>
           ) : null}
@@ -324,9 +291,9 @@ export function EvidenceListPage() {
             </label>
             <input
               className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              type="file"
               onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
               required
-              type="file"
             />
           </div>
           <div>
@@ -335,10 +302,26 @@ export function EvidenceListPage() {
             </label>
             <input
               className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              onChange={(event) => setUploadTitle(event.target.value)}
-              placeholder="Security policy"
               value={uploadTitle}
+              onChange={(event) => setUploadTitle(event.target.value)}
+              placeholder="SOC 2 report"
             />
+          </div>
+          <div className="flex items-center justify-end gap-3">
+            <button
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+              onClick={() => setIsUploadOpen(false)}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+              type="submit"
+              disabled={isUploading}
+            >
+              {isUploading ? "Uploading..." : "Upload"}
+            </button>
           </div>
         </form>
       </Modal>
