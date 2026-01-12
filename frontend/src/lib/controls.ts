@@ -18,7 +18,15 @@ export interface ControlDetail extends ControlSummary {
 }
 
 export interface ControlVersion {
+  id?: string | null;
+  organisation_id?: string | null;
+  control_id?: string | null;
   version?: number | string | null;
+  control_code?: string | null;
+  description?: string | null;
+  framework?: string | null;
+  status?: string | null;
+  owner_user_id?: string | null;
   created_at?: string | null;
   created_by_user_id?: string | null;
   title?: string | null;

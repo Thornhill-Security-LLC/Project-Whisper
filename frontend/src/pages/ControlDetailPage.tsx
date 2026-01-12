@@ -91,6 +91,8 @@ export function ControlDetailPage() {
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceSearch, setEvidenceSearch] = useState("");
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string>("");
+  const [selectedVersion, setSelectedVersion] = useState<ControlVersion | null>(null);
+  const [viewVersionOpen, setViewVersionOpen] = useState(false);
 
   useEffect(() => {
     if (!session?.orgId || !session.actorUserId) {
@@ -177,6 +179,7 @@ export function ControlDetailPage() {
 
   const evidenceRows = evidence.map((item) => [
     item.original_filename || item.title || "Untitled evidence",
+    item.evidence_type || "-",
     formatTimestamp(item.created_at ?? item.uploaded_at ?? null),
     formatSha(item.sha256),
     item.storage_backend || "-",
@@ -189,6 +192,15 @@ export function ControlDetailPage() {
       Download
     </button>,
   ]);
+
+  const handleVersionSelect = (index: number) => {
+    const version = versions[index];
+    if (!version) {
+      return;
+    }
+    setSelectedVersion(version);
+    setViewVersionOpen(true);
+  };
 
   const handleOpenCreateModal = () => {
     if (!control) {
@@ -387,6 +399,7 @@ export function ControlDetailPage() {
               <Table
                 columns={["Version", "Created", "Actor", "Summary"]}
                 rows={versionRows}
+                onRowClick={handleVersionSelect}
               />
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
@@ -401,7 +414,14 @@ export function ControlDetailPage() {
             </div>
             {evidence.length > 0 ? (
               <Table
-                columns={["File", "Created", "SHA-256", "Storage", "Actions"]}
+                columns={[
+                  "File",
+                  "Type",
+                  "Created",
+                  "SHA-256",
+                  "Storage",
+                  "Actions",
+                ]}
                 rows={evidenceRows}
               />
             ) : (
@@ -505,6 +525,103 @@ export function ControlDetailPage() {
               value={formState.controlCode}
             />
           </label>
+        </div>
+      </Modal>
+
+      <Modal
+        title="View control version"
+        description="Review the selected control version details."
+        open={viewVersionOpen}
+        onClose={() => setViewVersionOpen(false)}
+        actions={
+          <button
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600"
+            onClick={() => setViewVersionOpen(false)}
+            type="button"
+          >
+            Close
+          </button>
+        }
+      >
+        <div className="space-y-3 text-sm text-slate-600">
+          {selectedVersion ? (
+            <>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Version
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {selectedVersion.version ?? "-"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Created
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {formatTimestamp(selectedVersion.created_at)}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  Title
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-800">
+                  {selectedVersion.title || "-"}
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Control code
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {selectedVersion.control_code || "-"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Status
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {selectedVersion.status || "-"}
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Framework
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {selectedVersion.framework || "-"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-400">
+                    Created by
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-slate-800">
+                    {selectedVersion.created_by_user_id || "-"}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  Description
+                </p>
+                <p className="mt-1 whitespace-pre-line text-sm text-slate-700">
+                  {selectedVersion.description || "-"}
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+              Select a version to review details.
+            </div>
+          )}
         </div>
       </Modal>
 

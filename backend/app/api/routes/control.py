@@ -31,6 +31,7 @@ from app.schemas.control import (
     ControlVersionCreate,
     ControlVersionOut,
 )
+from app.schemas.evidence import EvidenceOut
 from app.services.audit import emit_audit_event
 
 router = APIRouter(tags=["controls"])
@@ -325,6 +326,44 @@ def list_control_versions(
     )
 
     return list(versions)
+
+
+@router.get(
+    "/organisations/{organisation_id}/controls/{control_id}/evidence",
+    response_model=list[EvidenceOut],
+)
+def list_control_evidence(
+    organisation_id: UUID,
+    control_id: UUID,
+    tenant_org_id: UUID = Depends(require_tenant_context),
+    db: Session = Depends(get_db),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
+) -> list[EvidenceOut]:
+    assert_path_matches_tenant(organisation_id, tenant_org_id)
+
+    _require_control_for_org(db, organisation_id, control_id)
+
+    evidence_items = (
+        db.execute(
+            select(EvidenceItem)
+            .join(
+                ControlEvidenceLink,
+                ControlEvidenceLink.evidence_item_id == EvidenceItem.id,
+            )
+            .where(
+                ControlEvidenceLink.organisation_id == organisation_id,
+                ControlEvidenceLink.control_id == control_id,
+            )
+            .order_by(
+                ControlEvidenceLink.created_at.desc(),
+                EvidenceItem.created_at.desc(),
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    return list(evidence_items)
 
 
 @router.post(
