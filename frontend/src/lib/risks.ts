@@ -1,4 +1,5 @@
 import { ApiSession, fetchJson } from "./api";
+import type { ControlSummary } from "./controls";
 
 export interface RiskSummary {
   risk_id: string;
@@ -86,6 +87,18 @@ export async function createRiskVersion(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     },
+    session
+  );
+}
+
+export async function listRiskControls(
+  organisationId: string,
+  riskId: string,
+  session: ApiSession
+) {
+  return fetchJson<ControlSummary[]>(
+    `/api/organisations/${organisationId}/risks/${riskId}/controls`,
+    {},
     session
   );
 }

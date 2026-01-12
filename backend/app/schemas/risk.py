@@ -58,3 +58,16 @@ class RiskVersionOut(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RiskControlLinkCreate(BaseModel):
+    control_id: UUID
+
+
+class RiskControlLinkOut(BaseModel):
+    id: UUID
+    risk_id: UUID
+    control_id: UUID
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
