@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import { StatCard } from "../components/StatCard";
 import { Table } from "../components/Table";
-import { useSession } from "../context/SessionContext";
+import { useAuth } from "../contexts/AuthContext";
 import { getApiErrorMessage } from "../lib/api";
 import { createControl, listControls, type ControlSummary } from "../lib/controls";
 
@@ -36,7 +36,7 @@ function formatTimestamp(value?: string) {
 
 export function ControlsPage() {
   const navigate = useNavigate();
-  const { session } = useSession();
+  const { identity, status } = useAuth();
   const [controls, setControls] = useState<ControlSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,14 +45,17 @@ export function ControlsPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!session?.orgId) {
-      navigate("/login", { replace: true });
-    }
-  }, [navigate, session?.orgId]);
+  const organisationId = identity?.organisationId ?? null;
+  const userId = identity?.userId ?? null;
 
   useEffect(() => {
-    if (!session?.orgId) {
+    if (status === "needs-input") {
+      navigate("/bootstrap", { replace: true });
+    }
+  }, [navigate, status]);
+
+  useEffect(() => {
+    if (!organisationId || !userId) {
       return;
     }
 
@@ -60,12 +63,7 @@ export function ControlsPage() {
     setLoading(true);
     setError(null);
 
-    listControls(session.orgId, {
-      orgId: session.orgId,
-      actorUserId: session.actorUserId,
-      actorEmail: session.actorEmail,
-      authToken: session.authToken,
-    })
+    listControls(organisationId, identity ?? {})
       .then((data) => {
         if (isActive) {
           setControls(data);
@@ -85,7 +83,7 @@ export function ControlsPage() {
     return () => {
       isActive = false;
     };
-  }, [session?.orgId, session?.actorUserId, session?.actorEmail, session?.authToken]);
+  }, [organisationId, userId, identity?.email]);
 
   const stats = useMemo(() => {
     const total = controls.length;
@@ -132,8 +130,8 @@ export function ControlsPage() {
   };
 
   const handleCreateControl = async () => {
-    if (!session?.orgId || !session.actorUserId) {
-      navigate("/login", { replace: true });
+    if (!organisationId || !userId) {
+      navigate("/bootstrap", { replace: true });
       return;
     }
 
@@ -152,7 +150,7 @@ export function ControlsPage() {
         framework: formState.framework.trim() || null,
         control_code: formState.controlCode.trim() || formState.title.trim(),
       };
-      const created = await createControl(session.orgId, payload, session);
+      const created = await createControl(organisationId, payload, identity ?? {});
       setModalOpen(false);
       navigate(`/controls/${created.control_id}`);
     } catch (createErr) {
@@ -198,103 +196,93 @@ export function ControlsPage() {
         ) : rows.length > 0 ? (
           <Table columns={["ID", "Title", "Status", "Framework"]} rows={rows} />
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-            No controls found for this organisation yet.
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+            No controls yet. Use the "New control" button to add one.
           </div>
         )}
       </section>
 
-      <Modal
-        title="Create a new control"
-        description="Add a control to your library and start tracking versions."
-        open={modalOpen}
-        onClose={() => {
-          if (!createLoading) {
-            setModalOpen(false);
-          }
-        }}
-        actions={
-          <>
-            <button
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600"
-              onClick={() => setModalOpen(false)}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-lg bg-brand-500 px-3 py-1.5 text-sm text-white disabled:opacity-50"
-              disabled={createLoading}
-              onClick={handleCreateControl}
-              type="button"
-            >
-              {createLoading ? "Saving..." : "Create control"}
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-4 text-sm text-slate-600">
+      <Modal open={modalOpen} title="New control" onClose={() => setModalOpen(false)}>
+        <div className="space-y-4">
           {createError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
               {createError}
             </div>
           ) : null}
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Name / Title
-            </span>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Title
+            </label>
             <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("title", event.target.value)}
-              required
+              className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formState.title}
+              onChange={(event) => handleFormChange("title", event.target.value)}
+              placeholder="SOC 2 CC1.1"
             />
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Description (optional)
-            </span>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Description
+            </label>
             <textarea
-              className="min-h-[90px] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("description", event.target.value)}
+              className="mt-2 min-h-[96px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formState.description}
+              onChange={(event) => handleFormChange("description", event.target.value)}
+              placeholder="Describe the control and testing approach."
             />
-          </label>
+          </div>
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Status (optional)
-              </span>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Status
+              </label>
               <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.status}
                 onChange={(event) => handleFormChange("status", event.target.value)}
                 placeholder="draft"
-                value={formState.status}
               />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Framework mapping (optional)
-              </span>
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Framework
+              </label>
               <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.framework}
                 onChange={(event) => handleFormChange("framework", event.target.value)}
                 placeholder="SOC 2"
-                value={formState.framework}
               />
-            </label>
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Control code
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.controlCode}
+                onChange={(event) => handleFormChange("controlCode", event.target.value)}
+                placeholder="CC1.1"
+              />
+            </div>
           </div>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Control code (optional)
-            </span>
-            <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("controlCode", event.target.value)}
-              placeholder="CC-1"
-              value={formState.controlCode}
-            />
-          </label>
+        </div>
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+            onClick={() => setModalOpen(false)}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+            onClick={handleCreateControl}
+            type="button"
+            disabled={createLoading}
+          >
+            {createLoading ? "Creating..." : "Create control"}
+          </button>
         </div>
       </Modal>
     </div>

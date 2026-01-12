@@ -1,18 +1,46 @@
 import { ReactNode } from "react";
 
 interface TableProps {
-  columns: string[];
+  columns?: string[];
+  headers?: string[];
   rows: ReactNode[][];
   onRowClick?: (rowIndex: number) => void;
+  loading?: boolean;
+  emptyState?: string;
 }
 
-export function Table({ columns, rows, onRowClick }: TableProps) {
+export function Table({
+  columns,
+  headers,
+  rows,
+  onRowClick,
+  loading = false,
+  emptyState,
+}: TableProps) {
+  const resolvedColumns = columns ?? headers ?? [];
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+        Loading...
+      </div>
+    );
+  }
+
+  if (rows.length === 0 && emptyState) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+        {emptyState}
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <table className="w-full border-collapse text-left text-sm">
         <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-400">
           <tr>
-            {columns.map((column) => (
+            {resolvedColumns.map((column) => (
               <th key={column} className="px-4 py-3 font-medium">
                 {column}
               </th>

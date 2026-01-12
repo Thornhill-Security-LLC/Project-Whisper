@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import { Table } from "../components/Table";
-import { useSession } from "../context/SessionContext";
+import { useAuth } from "../contexts/AuthContext";
 import { getApiErrorMessage } from "../lib/api";
 import {
   createRiskVersion,
@@ -60,7 +60,7 @@ function buildPayload(form: RiskFormState): RiskPayload {
 export function RiskDetailPage() {
   const navigate = useNavigate();
   const { riskId } = useParams();
-  const { session } = useSession();
+  const { identity, status } = useAuth();
   const [risk, setRisk] = useState<RiskDetail | null>(null);
   const [versions, setVersions] = useState<RiskVersion[]>([]);
   const [linkedControls, setLinkedControls] = useState<ControlSummary[]>([]);
@@ -72,14 +72,17 @@ export function RiskDetailPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const organisationId = identity?.organisationId ?? null;
+  const userId = identity?.userId ?? null;
+
   useEffect(() => {
-    if (!session?.orgId || !session?.actorUserId) {
-      navigate("/login", { replace: true });
+    if (status === "needs-input") {
+      navigate("/bootstrap", { replace: true });
     }
-  }, [navigate, session?.orgId, session?.actorUserId]);
+  }, [navigate, status]);
 
   const loadRisk = async () => {
-    if (!session?.orgId || !session?.actorUserId || !riskId) {
+    if (!organisationId || !userId || !riskId) {
       return;
     }
 
@@ -87,9 +90,9 @@ export function RiskDetailPage() {
     setError(null);
     try {
       const [riskData, versionData, controlsData] = await Promise.all([
-        getRisk(session.orgId, riskId, session),
-        listRiskVersions(session.orgId, riskId, session),
-        listRiskControls(session.orgId, riskId, session),
+        getRisk(organisationId, riskId, identity ?? {}),
+        listRiskVersions(organisationId, riskId, identity ?? {}),
+        listRiskControls(organisationId, riskId, identity ?? {}),
       ]);
       setRisk(riskData);
       setVersions(versionData);
@@ -102,9 +105,9 @@ export function RiskDetailPage() {
   };
 
   useEffect(() => {
-    loadRisk();
+    void loadRisk();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.orgId, session?.actorUserId, session?.actorEmail, session?.authToken, riskId]);
+  }, [organisationId, userId, identity?.email, riskId]);
 
   const overviewFields = useMemo(() => {
     if (!risk) {
@@ -167,8 +170,8 @@ export function RiskDetailPage() {
   };
 
   const handleCreateVersion = async () => {
-    if (!session?.orgId || !session?.actorUserId || !riskId) {
-      navigate("/login", { replace: true });
+    if (!organisationId || !userId || !riskId) {
+      navigate("/bootstrap", { replace: true });
       return;
     }
 
@@ -180,7 +183,7 @@ export function RiskDetailPage() {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      await createRiskVersion(session.orgId, riskId, buildPayload(formState), session);
+      await createRiskVersion(organisationId, riskId, buildPayload(formState), identity ?? {});
       setBanner("New version created.");
       setModalOpen(false);
       await loadRisk();
@@ -202,212 +205,154 @@ export function RiskDetailPage() {
   return (
     <div className="space-y-6">
       {banner ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div className="rounded-lg border border-emerald-900/50 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-100">
           {banner}
         </div>
       ) : null}
-
       {error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="rounded-lg border border-rose-900/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">
           {error}
         </div>
       ) : null}
 
-      {loading ? (
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-          Loading risk details...
+      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-100">{risk?.title || "—"}</h2>
+            <p className="text-sm text-slate-400">Risk ID: {risk?.risk_id || "—"}</p>
+          </div>
+          <button
+            className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400"
+            onClick={handleOpenModal}
+            type="button"
+          >
+            New version
+          </button>
         </div>
-      ) : risk ? (
-        <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-400">
-                  Risk {risk.risk_id}
-                </p>
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  {risk.title || "Untitled risk"}
-                </h2>
-              </div>
-              <button
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-                onClick={handleOpenModal}
-                type="button"
-              >
-                Create new version
-              </button>
-            </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {overviewFields.map((field) => (
-                <div key={field.label} className="rounded-xl bg-slate-50 px-4 py-3">
-                  <p className="text-xs uppercase tracking-wide text-slate-400">
-                    {field.label}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {field.value}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {risk.description ? (
-            <section className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h3 className="text-sm font-semibold text-slate-900">Description</h3>
-              <p className="mt-3 text-sm text-slate-600 whitespace-pre-line">
-                {risk.description}
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {overviewFields.map((field) => (
+            <div key={field.label}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                {field.label}
               </p>
-            </section>
-          ) : null}
-
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">Linked controls</h3>
+              <p className="mt-2 text-sm text-slate-100">{field.value}</p>
             </div>
-            {linkedControls.length > 0 ? (
-              <Table
-                columns={["Control code", "Title", "Status", "Updated"]}
-                rows={controlRows}
-                onRowClick={(index) => {
-                  const selected = linkedControls[index];
-                  if (selected?.control_id) {
-                    navigate(`/controls/${selected.control_id}`);
-                  }
-                }}
-              />
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-                No controls linked to this risk yet.
-              </div>
-            )}
-          </section>
-
-          <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-100">Version history</h3>
-            </div>
-            {versions.length > 0 ? (
-              <Table
-                columns={["Version", "Created", "Actor", "Title"]}
-                rows={versionRows}
-              />
-            ) : (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-                No versions have been recorded yet.
-              </div>
-            )}
-          </section>
-        </>
-      ) : (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-          Risk details are unavailable.
+          ))}
         </div>
-      )}
+      </section>
 
-      <Modal
-        title="Create a new version"
-        description="Capture the updated fields to add to version history."
-        open={modalOpen}
-        onClose={handleCloseModal}
-        actions={
-          <>
-            <button
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600"
-              onClick={handleCloseModal}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-              disabled={createLoading}
-              onClick={handleCreateVersion}
-              type="button"
-            >
-              {createLoading ? "Saving..." : "Create version"}
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-4 text-sm text-slate-600">
+      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <h3 className="text-lg font-semibold text-slate-100">Version history</h3>
+        <p className="mt-1 text-sm text-slate-400">Track changes made to this risk.</p>
+        <div className="mt-4">
+          <Table
+            headers={["Version", "Created", "Actor", "Title"]}
+            rows={versionRows}
+            loading={loading}
+            emptyState="No versions available yet."
+          />
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <h3 className="text-lg font-semibold text-slate-100">Linked controls</h3>
+        <p className="mt-1 text-sm text-slate-400">Controls mitigating this risk.</p>
+        <div className="mt-4">
+          <Table
+            headers={["Control", "Title", "Status", "Last updated"]}
+            rows={controlRows}
+            loading={loading}
+            emptyState="No controls linked yet."
+          />
+        </div>
+      </section>
+
+      <Modal open={modalOpen} title="New risk version" onClose={handleCloseModal}>
+        <div className="space-y-4">
           {createError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
               {createError}
             </div>
           ) : null}
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Title
-            </span>
+            </label>
             <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("title", event.target.value)}
-              required
+              className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formState.title}
+              onChange={(event) => handleFormChange("title", event.target.value)}
             />
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Description
-            </span>
-            <textarea
-              className="min-h-[90px] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("description", event.target.value)}
-              value={formState.description}
-            />
-          </label>
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Severity
-              </span>
-              <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-                onChange={(event) => handleFormChange("severity", event.target.value)}
-                value={formState.severity}
-              />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Likelihood
-              </span>
-              <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-                onChange={(event) => handleFormChange("likelihood", event.target.value)}
-                value={formState.likelihood}
-              />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Impact
-              </span>
-              <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-                onChange={(event) => handleFormChange("impact", event.target.value)}
-                value={formState.impact}
-              />
-            </label>
           </div>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Status
-            </span>
-            <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("status", event.target.value)}
-              value={formState.status}
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Description
+            </label>
+            <textarea
+              className="mt-2 min-h-[96px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={formState.description}
+              onChange={(event) => handleFormChange("description", event.target.value)}
             />
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Version summary
-            </span>
-            <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              disabled
-              value="Version summaries are not supported yet."
-            />
-          </label>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Severity
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.severity}
+                onChange={(event) => handleFormChange("severity", event.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Status
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.status}
+                onChange={(event) => handleFormChange("status", event.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Likelihood
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.likelihood}
+                onChange={(event) => handleFormChange("likelihood", event.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Impact
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.impact}
+                onChange={(event) => handleFormChange("impact", event.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+            onClick={handleCloseModal}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+            onClick={handleCreateVersion}
+            type="button"
+            disabled={createLoading}
+          >
+            {createLoading ? "Saving..." : "Save version"}
+          </button>
         </div>
       </Modal>
     </div>

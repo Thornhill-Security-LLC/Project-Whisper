@@ -1,4 +1,4 @@
-import { API_BASE_URL, ApiError, ApiSession, buildHeaders, fetchJson } from "./api";
+import { ApiAuthContext, ApiError, apiFetch, apiJson } from "./api";
 
 export interface EvidenceItem {
   id: string;
@@ -21,50 +21,28 @@ export interface EvidenceDownloadUrl {
   expires_in: number;
 }
 
-async function parseErrorMessage(response: Response): Promise<string> {
-  const fallback = response.statusText || "Request failed";
-  try {
-    const data = (await response.clone().json()) as { detail?: string };
-    if (data?.detail) {
-      return data.detail;
-    }
-  } catch {
-    // ignore
-  }
-
-  try {
-    const text = await response.text();
-    return text || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 export async function listEvidence(
   organisationId: string,
-  session: ApiSession
+  auth: ApiAuthContext
 ): Promise<EvidenceItem[]> {
-  return fetchJson<EvidenceItem[]>(`/api/organisations/${organisationId}/evidence`, {}, session);
+  return apiJson<EvidenceItem[]>(`/api/organisations/${organisationId}/evidence`, {
+    auth,
+  });
 }
 
 export async function uploadEvidence(
   organisationId: string,
   formData: FormData,
-  session: ApiSession
+  auth: ApiAuthContext
 ): Promise<EvidenceItem> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/organisations/${organisationId}/evidence/upload`,
+  const response = await apiFetch(
+    `/api/organisations/${organisationId}/evidence/upload`,
     {
       method: "POST",
-      headers: buildHeaders({}, session),
+      auth,
       body: formData,
     }
   );
-
-  if (!response.ok) {
-    const message = await parseErrorMessage(response);
-    throw new ApiError(response.status, message);
-  }
 
   return response.json() as Promise<EvidenceItem>;
 }
@@ -72,31 +50,30 @@ export async function uploadEvidence(
 export async function createEvidenceDownloadUrl(
   organisationId: string,
   evidenceId: string,
-  session: ApiSession
+  auth: ApiAuthContext
 ): Promise<EvidenceDownloadUrl> {
-  return fetchJson<EvidenceDownloadUrl>(
+  return apiJson<EvidenceDownloadUrl>(
     `/api/organisations/${organisationId}/evidence/${evidenceId}/download-url`,
-    {},
-    session
+    { auth }
   );
 }
 
 export async function downloadEvidenceFile(
   organisationId: string,
   evidenceId: string,
-  session: ApiSession
+  auth: ApiAuthContext
 ): Promise<Blob> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/organisations/${organisationId}/evidence/${evidenceId}/download`,
+  const response = await apiFetch(
+    `/api/organisations/${organisationId}/evidence/${evidenceId}/download`,
     {
-      headers: buildHeaders({ headers: { Accept: "application/octet-stream" } }, session),
+      auth,
+      headers: { Accept: "application/octet-stream" },
     }
   );
 
-  if (!response.ok) {
-    const message = await parseErrorMessage(response);
-    throw new ApiError(response.status, message);
+  try {
+    return await response.blob();
+  } catch (error) {
+    throw new ApiError(500, "Failed to download evidence file", error);
   }
-
-  return response.blob();
 }

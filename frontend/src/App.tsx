@@ -21,6 +21,7 @@ export function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/bootstrap" element={<LoginPage />} />
       <Route
         path="/dashboard"
         element={

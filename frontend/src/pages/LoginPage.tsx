@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSession } from "../context/SessionContext";
-import { fetchJson, getApiErrorMessage } from "../lib/api";
+import { useAuth } from "../contexts/AuthContext";
+import { apiJson, getApiErrorMessage } from "../lib/api";
 
 type BootstrapResponse = {
   organisation: { id: string; name: string };
@@ -10,7 +10,7 @@ type BootstrapResponse = {
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { setSession } = useSession();
+  const { identity, setManualIdentity } = useAuth();
   const [orgName, setOrgName] = useState("Acme Security");
   const [adminEmail, setAdminEmail] = useState("admin@example.com");
   const [adminDisplayName, setAdminDisplayName] = useState("Admin");
@@ -20,31 +20,31 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (identity?.organisationId && identity.userId) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [identity?.organisationId, identity?.userId, navigate]);
+
   const handleBootstrap = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const response = await fetchJson<BootstrapResponse>(
-        "/api/bootstrap",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            organisation_name: orgName,
-            admin_email: adminEmail,
-            admin_display_name: adminDisplayName,
-          }),
-        }
-      );
+      const response = await apiJson<BootstrapResponse>("/api/bootstrap", {
+        method: "POST",
+        json: {
+          organisation_name: orgName,
+          admin_email: adminEmail,
+          admin_display_name: adminDisplayName,
+        },
+      });
 
-      setSession({
-        orgId: response.organisation.id,
-        actorUserId: response.admin_user.id,
-        actorEmail: response.admin_user.email,
+      setManualIdentity({
+        organisationId: response.organisation.id,
+        userId: response.admin_user.id,
+        email: response.admin_user.email,
         authMode: "dev",
       });
       navigate("/dashboard", { replace: true });
@@ -59,10 +59,10 @@ export function LoginPage() {
     event.preventDefault();
     setError(null);
 
-    setSession({
-      orgId: manualOrgId.trim(),
-      actorUserId: manualActorId.trim(),
-      actorEmail: manualEmail.trim() || undefined,
+    setManualIdentity({
+      organisationId: manualOrgId.trim(),
+      userId: manualActorId.trim(),
+      email: manualEmail.trim() || null,
       authMode: "dev",
     });
     navigate("/dashboard", { replace: true });

@@ -430,12 +430,18 @@ psql "$DATABASE_URL" \
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
 The frontend runs at `http://localhost:5173` by default and uses `VITE_API_BASE_URL`
 to reach the backend (defaults to `http://localhost:8000`).
+
+To point the frontend at another API host while running locally:
+
+```bash
+VITE_API_BASE_URL="http://localhost:8000" npm run dev
+```
 
 ## Run backend and frontend together
 
@@ -449,7 +455,7 @@ In another terminal, run the frontend:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 

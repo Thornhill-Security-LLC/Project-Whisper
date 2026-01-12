@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Modal } from "../components/Modal";
 import { StatCard } from "../components/StatCard";
 import { Table } from "../components/Table";
-import { useSession } from "../context/SessionContext";
+import { useAuth } from "../contexts/AuthContext";
 import { getApiErrorMessage } from "../lib/api";
 import { createRisk, listRisks, type RiskPayload, type RiskSummary } from "../lib/risks";
 
@@ -51,7 +51,7 @@ function buildPayload(form: RiskFormState): RiskPayload {
 
 export function RisksPage() {
   const navigate = useNavigate();
-  const { session } = useSession();
+  const { identity, status } = useAuth();
   const [risks, setRisks] = useState<RiskSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,14 +60,17 @@ export function RisksPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!session?.orgId || !session?.actorUserId) {
-      navigate("/login", { replace: true });
-    }
-  }, [navigate, session?.orgId, session?.actorUserId]);
+  const organisationId = identity?.organisationId ?? null;
+  const userId = identity?.userId ?? null;
 
   useEffect(() => {
-    if (!session?.orgId || !session?.actorUserId) {
+    if (status === "needs-input") {
+      navigate("/bootstrap", { replace: true });
+    }
+  }, [navigate, status]);
+
+  useEffect(() => {
+    if (!organisationId || !userId) {
       return;
     }
 
@@ -75,7 +78,7 @@ export function RisksPage() {
     setLoading(true);
     setError(null);
 
-    listRisks(session.orgId, session)
+    listRisks(organisationId, identity ?? {})
       .then((data) => {
         if (isActive) {
           setRisks(data);
@@ -95,7 +98,7 @@ export function RisksPage() {
     return () => {
       isActive = false;
     };
-  }, [session?.orgId, session?.actorUserId, session?.actorEmail, session?.authToken]);
+  }, [organisationId, userId, identity?.email]);
 
   const stats = useMemo(() => {
     const total = risks.length;
@@ -149,8 +152,8 @@ export function RisksPage() {
   };
 
   const handleCreate = async () => {
-    if (!session?.orgId || !session?.actorUserId) {
-      navigate("/login", { replace: true });
+    if (!organisationId || !userId) {
+      navigate("/bootstrap", { replace: true });
       return;
     }
 
@@ -162,7 +165,7 @@ export function RisksPage() {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const created = await createRisk(session.orgId, buildPayload(formState), session);
+      const created = await createRisk(organisationId, buildPayload(formState), identity ?? {});
       setModalOpen(false);
       setFormState(emptyForm);
       navigate(`/risks/${created.risk_id}`);
@@ -201,119 +204,111 @@ export function RisksPage() {
         </button>
       </section>
 
-      <section className="space-y-3">
-        {error ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {error}
-          </div>
-        ) : null}
-        {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-            Loading risks...
-          </div>
-        ) : rows.length > 0 ? (
-          <Table columns={["ID", "Title", "Status", "Updated"]} rows={rows} />
-        ) : (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-            No risks found for this organisation yet.
-          </div>
-        )}
-      </section>
+      {error ? (
+        <div className="rounded-lg border border-rose-800/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">
+          {error}
+        </div>
+      ) : null}
 
-      <Modal
-        title="Create new risk"
-        description="Capture the basics to start tracking this risk."
-        open={modalOpen}
-        onClose={handleCloseModal}
-        actions={
-          <>
-            <button
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600"
-              onClick={handleCloseModal}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
-              disabled={createLoading}
-              onClick={handleCreate}
-              type="button"
-            >
-              {createLoading ? "Saving..." : "Create risk"}
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-4 text-sm text-slate-600">
+      <Table
+        headers={["Risk ID", "Title", "Status", "Last updated"]}
+        rows={rows}
+        loading={loading}
+        emptyState={"No risks found for this organisation."}
+      />
+
+      <Modal open={modalOpen} title="New risk" onClose={handleCloseModal}>
+        <div className="space-y-4">
           {createError ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
               {createError}
             </div>
           ) : null}
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               Title
-            </span>
+            </label>
             <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("title", event.target.value)}
-              required
+              className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
               value={formState.title}
+              onChange={(event) => handleFormChange("title", event.target.value)}
+              placeholder="Vendor data breach risk"
             />
-          </label>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Description
-            </span>
-            <textarea
-              className="min-h-[90px] rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("description", event.target.value)}
-              value={formState.description}
-            />
-          </label>
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Severity
-              </span>
-              <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-                onChange={(event) => handleFormChange("severity", event.target.value)}
-                value={formState.severity}
-              />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Likelihood
-              </span>
-              <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-                onChange={(event) => handleFormChange("likelihood", event.target.value)}
-                value={formState.likelihood}
-              />
-            </label>
-            <label className="flex flex-col gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Impact
-              </span>
-              <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-                onChange={(event) => handleFormChange("impact", event.target.value)}
-                value={formState.impact}
-              />
-            </label>
           </div>
-          <label className="flex flex-col gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Status
-            </span>
-            <input
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800"
-              onChange={(event) => handleFormChange("status", event.target.value)}
-              value={formState.status}
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Description
+            </label>
+            <textarea
+              className="mt-2 min-h-[96px] w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              value={formState.description}
+              onChange={(event) => handleFormChange("description", event.target.value)}
+              placeholder="Describe the risk..."
             />
-          </label>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Severity
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.severity}
+                onChange={(event) => handleFormChange("severity", event.target.value)}
+                placeholder="High"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Status
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.status}
+                onChange={(event) => handleFormChange("status", event.target.value)}
+                placeholder="Open"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Likelihood
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.likelihood}
+                onChange={(event) => handleFormChange("likelihood", event.target.value)}
+                placeholder="0.5"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Impact
+              </label>
+              <input
+                className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={formState.impact}
+                onChange={(event) => handleFormChange("impact", event.target.value)}
+                placeholder="0.7"
+              />
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <button
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+            onClick={handleCloseModal}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+            onClick={handleCreate}
+            type="button"
+            disabled={createLoading}
+          >
+            {createLoading ? "Creating..." : "Create risk"}
+          </button>
         </div>
       </Modal>
     </div>
