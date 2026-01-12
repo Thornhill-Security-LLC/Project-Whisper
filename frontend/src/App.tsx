@@ -79,7 +79,7 @@ export function App() {
         }
       />
       <Route
-        path="/incidents/:id"
+        path="/incidents/:incidentId"
         element={
           <AppLayout title="Incident detail" subtitle="Response timeline and artifacts">
             <IncidentDetailPage />

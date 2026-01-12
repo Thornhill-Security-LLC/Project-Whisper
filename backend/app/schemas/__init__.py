@@ -16,6 +16,12 @@ from app.schemas.control import (
     ControlVersionCreate,
 )
 from app.schemas.evidence import EvidenceCreate, EvidenceOut
+from app.schemas.incident import (
+    IncidentCreate,
+    IncidentOut,
+    IncidentVersionCreate,
+    IncidentVersionOut,
+)
 from app.schemas.user_account import UserAccountCreate, UserAccountOut
 
 __all__ = [
@@ -36,6 +42,10 @@ __all__ = [
     "ControlVersionCreate",
     "EvidenceCreate",
     "EvidenceOut",
+    "IncidentCreate",
+    "IncidentOut",
+    "IncidentVersionCreate",
+    "IncidentVersionOut",
     "UserAccountCreate",
     "UserAccountOut",
 ]

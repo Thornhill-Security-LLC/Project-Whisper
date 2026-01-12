@@ -135,6 +135,55 @@ comma-separated list of allowed origins (for example,
 - Using Risks UI: create risk -> create version -> view history
 - Using Controls UI: create control -> open detail -> create new version -> link evidence -> download linked evidence
 
+## Dev smoke test
+
+With `ORG_ID` and `ADMIN_ID` available (for example, sourced from `.dev_ids.env`), you can verify the incident API flow:
+
+```bash
+export ORG_ID=...
+export ADMIN_ID=...
+```
+
+Create an incident:
+
+```bash
+INCIDENT_ID=$(curl -s -X POST http://localhost:8000/api/organisations/$ORG_ID/incidents \
+  -H "Content-Type: application/json" \
+  -H "X-Organisation-Id: $ORG_ID" \
+  -H "X-Actor-User-Id: $ADMIN_ID" \
+  -d '{
+    "title": "Suspicious login",
+    "description": "Unexpected login attempts",
+    "severity": "high",
+    "status": "open",
+    "category": "identity"
+  }' | jq -r .incident_id)
+```
+
+Create a new version:
+
+```bash
+curl -X POST http://localhost:8000/api/organisations/$ORG_ID/incidents/$INCIDENT_ID/versions \
+  -H "Content-Type: application/json" \
+  -H "X-Organisation-Id: $ORG_ID" \
+  -H "X-Actor-User-Id: $ADMIN_ID" \
+  -d '{
+    "title": "Suspicious login (updated)",
+    "description": "Confirmed credential stuffing",
+    "severity": "critical",
+    "status": "investigating",
+    "category": "identity"
+  }'
+```
+
+List versions:
+
+```bash
+curl http://localhost:8000/api/organisations/$ORG_ID/incidents/$INCIDENT_ID/versions \
+  -H "X-Organisation-Id: $ORG_ID" \
+  -H "X-Actor-User-Id: $ADMIN_ID"
+```
+
 ### Creating and versioning controls
 
 Once you have a dev session:
@@ -203,8 +252,8 @@ Project Whisper uses org-scoped RBAC roles on `user_account.role`:
 | Role | Capabilities |
 | --- | --- |
 | `org_owner` | Full access to all org actions. |
-| `org_admin` | Manage users, controls, evidence, risks, and read all. |
-| `org_member` | Manage evidence and risks, read all. |
+| `org_admin` | Manage users, controls, evidence, risks, incidents, and read all. |
+| `org_member` | Manage evidence, risks, incidents, read all. |
 | `auditor` | Read-only access. |
 
 Permissions map to the following API action groups:
@@ -214,6 +263,7 @@ Permissions map to the following API action groups:
 - `ORG_MANAGE_CONTROLS`
 - `ORG_MANAGE_EVIDENCE`
 - `ORG_MANAGE_RISKS`
+- `ORG_MANAGE_INCIDENTS`
 
 **Migration note:** existing users are defaulted to `org_admin` because bootstrap
 origin is not yet detectable. New users default to `org_member` unless specified.
