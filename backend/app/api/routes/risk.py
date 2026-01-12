@@ -10,9 +10,20 @@ from sqlalchemy.orm import Session
 from app.core.auth import get_actor
 from app.core.authorization import ORG_MANAGE_RISKS, ORG_READ, require_permission
 from app.core.tenant import assert_path_matches_tenant, require_tenant_context
-from app.db.models import Organisation, Risk, RiskVersion, UserAccount
+from app.db.models import (
+    Control,
+    ControlVersion,
+    Organisation,
+    Risk,
+    RiskControlLink,
+    RiskVersion,
+    UserAccount,
+)
 from app.db.session import get_db
+from app.schemas.control import ControlOut
 from app.schemas.risk import (
+    RiskControlLinkCreate,
+    RiskControlLinkOut,
     RiskCreate,
     RiskOut,
     RiskVersionCreate,
@@ -51,6 +62,24 @@ def _require_owner_user(
         )
 
 
+def _require_control_for_org(
+    db: Session, organisation_id: UUID, control_id: UUID
+) -> Control:
+    control = (
+        db.execute(
+            select(Control).where(
+                Control.id == control_id,
+                Control.organisation_id == organisation_id,
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if not control:
+        raise HTTPException(status_code=404, detail="Control not found")
+    return control
+
+
 def _risk_out_from_latest(risk: Risk, version: RiskVersion) -> RiskOut:
     return RiskOut(
         risk_id=risk.id,
@@ -65,6 +94,25 @@ def _risk_out_from_latest(risk: Risk, version: RiskVersion) -> RiskOut:
         status=version.status,
         owner_user_id=version.owner_user_id,
         created_at=risk.created_at,
+        updated_at=version.created_at,
+    )
+
+
+def _control_out_from_latest(
+    control: Control, version: ControlVersion
+) -> ControlOut:
+    return ControlOut(
+        control_id=control.id,
+        organisation_id=control.organisation_id,
+        latest_version=version.version,
+        framework=version.framework,
+        control_code=version.control_code,
+        title=version.title,
+        description=version.description,
+        status=version.status,
+        owner_user_id=version.owner_user_id,
+        score=None,
+        created_at=control.created_at,
         updated_at=version.created_at,
     )
 
@@ -304,3 +352,107 @@ def list_risk_versions(
     )
 
     return list(versions)
+
+
+@router.get(
+    "/organisations/{organisation_id}/risks/{risk_id}/controls",
+    response_model=list[ControlOut],
+)
+def list_risk_controls(
+    organisation_id: UUID,
+    risk_id: UUID,
+    tenant_org_id: UUID = Depends(require_tenant_context),
+    db: Session = Depends(get_db),
+    actor_user: UserAccount = Depends(require_permission(ORG_READ)),
+) -> list[ControlOut]:
+    assert_path_matches_tenant(organisation_id, tenant_org_id)
+
+    _require_risk_for_org(db, organisation_id, risk_id)
+
+    latest_versions_subq = (
+        select(
+            ControlVersion.control_id,
+            func.max(ControlVersion.version).label("max_version"),
+        )
+        .where(ControlVersion.organisation_id == organisation_id)
+        .group_by(ControlVersion.control_id)
+        .subquery()
+    )
+
+    rows = db.execute(
+        select(Control, ControlVersion)
+        .join(
+            RiskControlLink,
+            RiskControlLink.control_id == Control.id,
+        )
+        .join(
+            latest_versions_subq,
+            latest_versions_subq.c.control_id == Control.id,
+        )
+        .join(
+            ControlVersion,
+            (ControlVersion.control_id == latest_versions_subq.c.control_id)
+            & (ControlVersion.version == latest_versions_subq.c.max_version),
+        )
+        .where(
+            RiskControlLink.organisation_id == organisation_id,
+            RiskControlLink.risk_id == risk_id,
+        )
+    ).all()
+
+    return [_control_out_from_latest(control, version) for control, version in rows]
+
+
+@router.post(
+    "/organisations/{organisation_id}/risks/{risk_id}/controls",
+    response_model=RiskControlLinkOut,
+)
+def link_risk_control(
+    organisation_id: UUID,
+    risk_id: UUID,
+    payload: RiskControlLinkCreate,
+    tenant_org_id: UUID = Depends(require_tenant_context),
+    db: Session = Depends(get_db),
+    actor: dict[str, UUID | str | None] = Depends(get_actor),
+    actor_user: UserAccount = Depends(require_permission(ORG_MANAGE_RISKS)),
+) -> RiskControlLinkOut:
+    assert_path_matches_tenant(organisation_id, tenant_org_id)
+
+    risk = _require_risk_for_org(db, organisation_id, risk_id)
+    control = _require_control_for_org(db, organisation_id, payload.control_id)
+
+    link = RiskControlLink(
+        organisation_id=organisation_id,
+        risk_id=risk.id,
+        control_id=control.id,
+        created_by_user_id=actor_user.id,
+    )
+    db.add(link)
+
+    emit_audit_event(
+        db,
+        organisation_id=organisation_id,
+        actor_user_id=actor_user.id,
+        actor_email=actor.get("actor_email"),
+        action="risk.control_linked",
+        entity_type="risk_control_link",
+        entity_id=link.id,
+        metadata={
+            "risk_id": str(risk.id),
+            "control_id": str(control.id),
+        },
+    )
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Write failed")
+
+    db.refresh(link)
+    return RiskControlLinkOut(
+        id=link.id,
+        risk_id=link.risk_id,
+        control_id=link.control_id,
+        created_at=link.created_at,
+    )

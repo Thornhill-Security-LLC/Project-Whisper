@@ -20,6 +20,10 @@ def test_openapi_includes_api_routes() -> None:
         "/api/organisations/{organisation_id}/risks/{risk_id}/versions"
         in schema["paths"]
     )
+    assert (
+        "/api/organisations/{organisation_id}/risks/{risk_id}/controls"
+        in schema["paths"]
+    )
     assert "/api/organisations/{organisation_id}/controls" in schema["paths"]
     assert (
         "/api/organisations/{organisation_id}/controls/{control_id}"

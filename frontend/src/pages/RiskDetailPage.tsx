@@ -7,11 +7,13 @@ import { getApiErrorMessage } from "../lib/api";
 import {
   createRiskVersion,
   getRisk,
+  listRiskControls,
   listRiskVersions,
   type RiskDetail,
   type RiskPayload,
   type RiskVersion,
 } from "../lib/risks";
+import type { ControlSummary } from "../lib/controls";
 
 type RiskFormState = {
   title: string;
@@ -61,6 +63,7 @@ export function RiskDetailPage() {
   const { session } = useSession();
   const [risk, setRisk] = useState<RiskDetail | null>(null);
   const [versions, setVersions] = useState<RiskVersion[]>([]);
+  const [linkedControls, setLinkedControls] = useState<ControlSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
@@ -83,12 +86,14 @@ export function RiskDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [riskData, versionData] = await Promise.all([
+      const [riskData, versionData, controlsData] = await Promise.all([
         getRisk(session.orgId, riskId, session),
         listRiskVersions(session.orgId, riskId, session),
+        listRiskControls(session.orgId, riskId, session),
       ]);
       setRisk(riskData);
       setVersions(versionData);
+      setLinkedControls(controlsData);
     } catch (fetchError) {
       setError(getApiErrorMessage(fetchError));
     } finally {
@@ -127,6 +132,13 @@ export function RiskDetailPage() {
       version.title || "-",
     ];
   });
+
+  const controlRows = linkedControls.map((control) => [
+    control.control_code || "-",
+    control.title || "Untitled control",
+    control.status || "-",
+    formatTimestamp(control.updated_at ?? control.created_at ?? null),
+  ]);
 
   const handleOpenModal = () => {
     if (!risk) {
@@ -247,6 +259,28 @@ export function RiskDetailPage() {
               </p>
             </section>
           ) : null}
+
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900">Linked controls</h3>
+            </div>
+            {linkedControls.length > 0 ? (
+              <Table
+                columns={["Control code", "Title", "Status", "Updated"]}
+                rows={controlRows}
+                onRowClick={(index) => {
+                  const selected = linkedControls[index];
+                  if (selected?.control_id) {
+                    navigate(`/controls/${selected.control_id}`);
+                  }
+                }}
+              />
+            ) : (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                No controls linked to this risk yet.
+              </div>
+            )}
+          </section>
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">

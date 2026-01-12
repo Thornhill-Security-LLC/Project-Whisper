@@ -1,6 +1,8 @@
 from app.schemas.organisation import OrganisationCreate, OrganisationOut
 from app.schemas.bootstrap import BootstrapCreate, BootstrapOut
 from app.schemas.risk import (
+    RiskControlLinkCreate,
+    RiskControlLinkOut,
     RiskCreate,
     RiskOut,
     RiskVersionCreate,
@@ -22,6 +24,8 @@ __all__ = [
     "BootstrapCreate",
     "BootstrapOut",
     "RiskCreate",
+    "RiskControlLinkCreate",
+    "RiskControlLinkOut",
     "RiskOut",
     "RiskVersionCreate",
     "RiskVersionOut",

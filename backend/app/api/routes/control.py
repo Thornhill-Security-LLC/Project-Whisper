@@ -337,6 +337,7 @@ def list_control_evidence(
     control_id: UUID,
     tenant_org_id: UUID = Depends(require_tenant_context),
     db: Session = Depends(get_db),
+    actor: dict[str, UUID | str | None] = Depends(get_actor),
     actor_user: UserAccount = Depends(require_permission(ORG_READ)),
 ) -> list[EvidenceOut]:
     assert_path_matches_tenant(organisation_id, tenant_org_id)
@@ -362,6 +363,25 @@ def list_control_evidence(
         .scalars()
         .all()
     )
+
+    emit_audit_event(
+        db,
+        organisation_id=organisation_id,
+        actor_user_id=actor_user.id,
+        actor_email=actor.get("actor_email"),
+        action="control.evidence.viewed",
+        entity_type="control",
+        entity_id=control_id,
+        metadata={
+            "control_id": str(control_id),
+            "risk_id": None,
+            "count": len(evidence_items),
+        },
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
 
     return list(evidence_items)
 
