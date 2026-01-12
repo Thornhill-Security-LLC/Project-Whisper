@@ -15,6 +15,7 @@ ORG_MANAGE_USERS = "org.manage_users"
 ORG_MANAGE_CONTROLS = "org.manage_controls"
 ORG_MANAGE_EVIDENCE = "org.manage_evidence"
 ORG_MANAGE_RISKS = "org.manage_risks"
+ORG_MANAGE_INCIDENTS = "org.manage_incidents"
 
 _ROLE_PERMISSIONS: dict[str, set[str]] = {
     "org_admin": {
@@ -23,11 +24,13 @@ _ROLE_PERMISSIONS: dict[str, set[str]] = {
         ORG_MANAGE_CONTROLS,
         ORG_MANAGE_EVIDENCE,
         ORG_MANAGE_RISKS,
+        ORG_MANAGE_INCIDENTS,
     },
     "org_member": {
         ORG_READ,
         ORG_MANAGE_EVIDENCE,
         ORG_MANAGE_RISKS,
+        ORG_MANAGE_INCIDENTS,
     },
     "auditor": {ORG_READ},
 }

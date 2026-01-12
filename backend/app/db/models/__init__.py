@@ -3,6 +3,8 @@ from app.db.models.control import Control
 from app.db.models.control_evidence_link import ControlEvidenceLink
 from app.db.models.control_version import ControlVersion
 from app.db.models.evidence_item import EvidenceItem
+from app.db.models.incident import Incident
+from app.db.models.incident_version import IncidentVersion
 from app.db.models.organisation import Organisation
 from app.db.models.risk import Risk
 from app.db.models.risk_control_link import RiskControlLink
@@ -15,6 +17,8 @@ __all__ = [
     "ControlEvidenceLink",
     "ControlVersion",
     "EvidenceItem",
+    "Incident",
+    "IncidentVersion",
     "Organisation",
     "Risk",
     "RiskControlLink",

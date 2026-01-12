@@ -56,3 +56,38 @@ def test_openapi_includes_api_routes() -> None:
         "/api/organisations/{organisation_id}/evidence/{evidence_id}/download-url"
         in schema["paths"]
     )
+    assert "/api/organisations/{organisation_id}/incidents" in schema["paths"]
+    assert (
+        "/api/organisations/{organisation_id}/incidents/{incident_id}"
+        in schema["paths"]
+    )
+    assert (
+        "/api/organisations/{organisation_id}/incidents/{incident_id}/versions"
+        in schema["paths"]
+    )
+    assert (
+        "post"
+        in schema["paths"]["/api/organisations/{organisation_id}/incidents"]
+    )
+    assert (
+        "get"
+        in schema["paths"]["/api/organisations/{organisation_id}/incidents"]
+    )
+    assert (
+        "get"
+        in schema["paths"][
+            "/api/organisations/{organisation_id}/incidents/{incident_id}"
+        ]
+    )
+    assert (
+        "post"
+        in schema["paths"][
+            "/api/organisations/{organisation_id}/incidents/{incident_id}/versions"
+        ]
+    )
+    assert (
+        "get"
+        in schema["paths"][
+            "/api/organisations/{organisation_id}/incidents/{incident_id}/versions"
+        ]
+    )
