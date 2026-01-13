@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
@@ -8,7 +10,14 @@ from app.core.config import get_auth_mode, get_cors_allow_origins
 from app.core.oidc import validate_oidc_settings
 from app.db.session import get_db
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if get_auth_mode() == "oidc":
+        validate_oidc_settings()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_allow_origins(),
@@ -17,13 +26,6 @@ app.add_middleware(
     allow_credentials=False,
 )
 app.include_router(api_router, prefix="/api")
-
-
-@app.on_event("startup")
-def validate_configuration() -> None:
-    if get_auth_mode() == "oidc":
-        validate_oidc_settings()
-
 
 @app.get("/health")
 def health() -> dict[str, str]:
