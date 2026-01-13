@@ -23,6 +23,8 @@ docker compose up --build
 make test-docker
 ```
 
+CI runs backend tests via `make test-docker` (dockerized tests with migrations) and builds the frontend with `npm ci` + `npm run build` from `frontend/`.
+
 Run the database migrations:
 
 ```bash

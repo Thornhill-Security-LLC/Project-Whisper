@@ -15,11 +15,28 @@ jobs:
   backend:
     name: backend
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_DB: whisper
+      POSTGRES_USER: whisper
+      POSTGRES_PASSWORD: whisper_dev_password
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Show Docker versions
+        run: |
+          set -euo pipefail
+          docker version
+          docker compose version
       - name: Run backend tests
-        run: make test-docker
+        run: |
+          set -euo pipefail
+          make test-docker
+      - name: Dump docker compose logs
+        if: failure()
+        run: |
+          set -euo pipefail
+          docker compose ps
+          docker compose logs postgres backend-test
 
   frontend:
     name: frontend
@@ -27,41 +44,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Check for frontend directory
-        id: frontend_dir
-        run: |
-          if [ -d frontend ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Check for frontend lockfile
-        id: lockfile
-        if: steps.frontend_dir.outputs.exists == 'true'
-        run: |
-          if [ -f frontend/package-lock.json ] || [ -f frontend/yarn.lock ] || [ -f frontend/pnpm-lock.yaml ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Skip frontend CI (no lockfile)
-        if: steps.frontend_dir.outputs.exists != 'true' || steps.lockfile.outputs.exists != 'true'
-        run: echo "No frontend lockfile found. Skipping frontend CI."
       - name: Set up Node
-        if: steps.frontend_dir.outputs.exists == 'true' && steps.lockfile.outputs.exists == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "lts/*"
           cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Show Node versions
+        run: |
+          set -euo pipefail
+          node --version
+          npm --version
       - name: Install dependencies
-        if: steps.frontend_dir.outputs.exists == 'true' && steps.lockfile.outputs.exists == 'true'
-        run: npm ci
-        working-directory: frontend
-      - name: Lint
-        if: steps.frontend_dir.outputs.exists == 'true' && steps.lockfile.outputs.exists == 'true'
-        run: npm run lint
+        run: |
+          set -euo pipefail
+          npm ci
         working-directory: frontend
       - name: Build
-        if: steps.frontend_dir.outputs.exists == 'true' && steps.lockfile.outputs.exists == 'true'
-        run: npm run build
+        run: |
+          set -euo pipefail
+          npm run build
         working-directory: frontend
