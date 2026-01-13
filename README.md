@@ -133,9 +133,28 @@ comma-separated list of allowed origins (for example,
 - Open http://localhost:5173/login
 - Click **Bootstrap Dev Org** to create an org + admin user
 - You will be redirected to `/dashboard` and can visit `/risks`, `/controls`, and `/evidence`
-- From `/evidence`, use **Upload evidence** to attach a file. If the storage backend is GCS, downloads use the signed URL flow.
-- Using Risks UI: create risk -> create version -> view history
-- Using Controls UI: create control -> open detail -> create new version -> link evidence -> download linked evidence
+
+## Evidence workflows (UI)
+
+From a fresh bootstrap, you can validate the end-to-end evidence flow entirely in the UI:
+
+1) **Bootstrap a dev org**
+   - Visit http://localhost:5173/login
+   - Click **Bootstrap Dev Org**
+2) **Upload evidence**
+   - Navigate to `/evidence`
+   - Click **Upload evidence**
+   - Select a file, set an evidence type, and optionally provide title/description/source/URL
+   - Submit and confirm the “Evidence uploaded” toast appears
+3) **Link evidence to a control**
+   - Navigate to `/controls` and open a control detail view
+   - Click **Link existing evidence**, search, and select the uploaded evidence
+   - Confirm the link and verify it appears in the **Linked evidence** table
+4) **Download evidence**
+   - Use the **Download** action from `/evidence` or the control detail page
+   - GCS-backed evidence should open a signed URL; local storage should download directly
+
+Using Risks UI: create risk -> create version -> view history.
 
 ## Dev smoke test
 
