@@ -17,6 +17,7 @@ import {
 import {
   createEvidenceDownloadUrl,
   downloadEvidenceFile,
+  getEvidenceDownloadErrorMessage,
   listEvidence,
   type EvidenceItem,
 } from "../lib/evidence";
@@ -48,16 +49,6 @@ function formatTimestamp(value?: string | null) {
   return parsed.toLocaleString();
 }
 
-function formatSha(value?: string | null) {
-  if (!value) {
-    return "-";
-  }
-  if (value.length <= 12) {
-    return value;
-  }
-  return `${value.slice(0, 8)}…${value.slice(-4)}`;
-}
-
 function buildPayload(form: ControlFormState): ControlPayload {
   const title = form.title.trim();
   const controlCode = form.controlCode.trim() || title;
@@ -85,6 +76,7 @@ export function ControlDetailPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [linking, setLinking] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -182,18 +174,20 @@ export function ControlDetailPage() {
   });
 
   const evidenceRows = evidence.map((item) => [
-    item.original_filename || item.title || "Untitled evidence",
+    item.title || "-",
     item.evidence_type || "-",
-    formatTimestamp(item.created_at ?? item.uploaded_at ?? null),
-    formatSha(item.sha256),
+    item.source || "-",
+    item.original_filename || "-",
+    formatTimestamp(item.uploaded_at ?? null),
     item.storage_backend || "-",
     <button
-      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300"
+      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
       key={`download-${item.id}`}
       onClick={() => handleDownload(item)}
       type="button"
+      disabled={downloadingId === item.id}
     >
-      Download
+      {downloadingId === item.id ? "Downloading..." : "Download"}
     </button>,
   ]);
 
@@ -256,6 +250,7 @@ export function ControlDetailPage() {
         return;
       }
       setDownloadError(null);
+      setDownloadingId(item.id);
       try {
         if (item.storage_backend === "gcs") {
           const payload = await createEvidenceDownloadUrl(organisationId, item.id, identity ?? {});
@@ -263,15 +258,22 @@ export function ControlDetailPage() {
           return;
         }
 
-        const blob = await downloadEvidenceFile(organisationId, item.id, identity ?? {});
+        const { blob, filename } = await downloadEvidenceFile(
+          organisationId,
+          item.id,
+          identity ?? {}
+        );
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = item.original_filename || item.title || "evidence";
+        link.download =
+          filename || item.original_filename || item.title || "evidence";
         link.click();
         window.URL.revokeObjectURL(url);
       } catch (downloadErr) {
-        setDownloadError(getApiErrorMessage(downloadErr));
+        setDownloadError(getEvidenceDownloadErrorMessage(downloadErr));
+      } finally {
+        setDownloadingId(null);
       }
     },
     [identity, organisationId]
@@ -416,16 +418,19 @@ export function ControlDetailPage() {
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">Evidence</h3>
+              <h3 className="text-sm font-semibold text-slate-900">
+                Linked evidence
+              </h3>
             </div>
             {evidence.length > 0 ? (
               <Table
                 columns={[
-                  "Filename",
+                  "Title",
                   "Type",
-                  "Uploaded",
-                  "SHA",
-                  "Storage",
+                  "Source",
+                  "Filename",
+                  "Uploaded at",
+                  "Storage backend",
                   "",
                 ]}
                 rows={evidenceRows}
@@ -553,7 +558,16 @@ export function ControlDetailPage() {
                   key={item.id}
                   className="flex cursor-pointer items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 >
-                  <span>{item.original_filename || item.title || item.id}</span>
+                  <span className="flex flex-col">
+                    <span className="font-medium text-slate-900">
+                      {item.title || item.original_filename || item.id}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {(item.evidence_type || "Type unknown") +
+                        " · " +
+                        (item.source || "Source unknown")}
+                    </span>
+                  </span>
                   <input
                     type="radio"
                     name="evidence"
